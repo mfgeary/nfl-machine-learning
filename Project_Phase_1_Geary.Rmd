@@ -1,0 +1,49 @@
+---
+title: "Project Phase 1"
+author: "Marion Geary"
+date: "2/25/2022"
+output:
+  html_document:
+    highlight: kate
+  pdf_document:
+    highlight: breezedark
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+library(knitr)
+```
+
+## Why NFL Data?
+
+For my Machine Learning project, I plan to analyze data about NFL players. In my Software Development class, I am currently working with a team to build an application for Fantasy Football players to help them use analytics to build their team. One important part of our project is helping our users make data-driven decisions when playing Fantasy Football. Most of our application will simply entail displaying data and letting the user make decisions. However, for this project, I would like to take the analytics a step further and use machine learning techniques to predict the performance of players, specifically as it relates to Fantasy Football scoring.
+
+## Research Questions
+
+The main goal of my research is to predict the amount of fantasy points that a player will earn in their next game. This will entail using historic data about the player as well as data about players in the same position or on the same team to make predictions. Since fantasy points is a function of a player's stats, this project will be a way of predicting the player's performance in their next game.
+
+**How many fantasy points will this player score in their next game?**
+
+Another goal of my research is to be able to predict which of any two (or more) selected players will perform better in terms of fantasy points.
+
+
+**Which player will score the most fantasy points in the next game?**
+
+## Data Source
+
+My data will come from the `nflverse` group of packages in `R`. Much like the `tidyverse`, the `nflverse` is a group of packages designed to make working with NFL data easy and accessible (check out the [documentation](https://nflverse.nflverse.com) and [repository](https://github.com/nflverse)). The package sources data from the NFL API and other resources and updates regularly when the NFL is in season. I plan to mainly use player statics. I will likely focus on the 2021 season, but I may make comparisons across seasons as well. The `nflverse` has data from every game since 1999.
+
+```{r}
+library(nflverse)
+# This will be my main data set. It includes all the stats
+# from each players performance in every game since 1999.
+player_stats <- load_player_stats()
+names(player_stats)
+kable(head(player_stats, 3), "pipe")
+
+# I will use some data from the roster as well to get more
+# demographic information about the players
+roster <- load_rosters()
+names(roster)
+kable(head(roster, 3), "pipe")
+```
