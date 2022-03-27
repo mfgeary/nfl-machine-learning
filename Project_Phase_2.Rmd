@@ -58,11 +58,27 @@ roster_off_pl_kick <- roster_off_pl_kick %>%
 # use official player stats, don't use 'player stats', use player_stats_kick
 
 roster_off_pl_kick_com <- roster_off_pl_kick %>%
-  left_join(combine, by = c('pfr_id' = 'pfr_id'), suffix = c('', '.xyz'), keep = FALSE)
+  left_join(combine, by = c('pfr_id' = 'pfr_id'), suffix = c('', '.xyz'), keep = FALSE, na_matches = 'never')
 
 roster_off_pl_kick_com <- roster_off_pl_kick_com %>%
   distinct() %>%
   select(- (grep(".xyz", names(roster_off_pl_kick_com)))) 
+
+roster_off_pl_kick_com_team <- roster_off_pl_kick_com %>% left_join(team_data, by = c('team' = 'team_abbr'), suffix = c('', '.xyz'), keep = FALSE)
+
+roster_off_pl_kick_com_team <- roster_off_pl_kick_com_team %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(roster_off_pl_kick_com_team)))) 
+
+injuries <- injuries %>% mutate(season = as.numeric(season), week = as.numeric(week))
+
+roster_off_pl_kick_com_team_inj <- roster_off_pl_kick_com_team %>%
+  left_join(
+    injuries,
+    by = c('gsis_id' = 'gsis_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  )
 ```
 
 ```{r}
