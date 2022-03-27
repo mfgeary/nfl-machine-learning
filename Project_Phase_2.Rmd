@@ -1,0 +1,26 @@
+---
+title: "Project Phase 2"
+author: "Marion Geary"
+date: '2022-03-27'
+output: html_document
+---
+
+
+
+```{r}
+library(nflverse)
+library(tidymodels)
+
+official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
+
+
+
+
+
+
+```
+
+```{r}
+save.image("nfl-project.Rdata")
+```
+
