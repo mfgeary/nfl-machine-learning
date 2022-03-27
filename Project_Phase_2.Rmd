@@ -13,11 +13,56 @@ library(tidymodels)
 
 official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
 
+player_stats <- load_player_stats(seasons = most_recent_season(), stat_type = 'offense', )
 
+player_stats_kicking <- load_player_stats(seasons = most_recent_season(), stat_type = 'kicking')
 
+combine <- load_combine(seasons = TRUE)
 
+roster <- load_rosters(seasons = most_recent_season())
 
+team_data <- load_teams()
 
+injuries <- load_injuries()
+
+next_gen_pass <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'passing')
+
+next_gen_rec <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'receiving')
+
+next_gen_rush <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'rushing')
+
+snap_counts <- load_snap_counts(seasons = most_recent_season())
+
+pfr_adv_pass <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'pass', summary_level = 'week')
+
+pfr_adv_rec <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'rec', summary_level = 'week')
+
+pfr_adv_rush <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'rush', summary_level = 'week')
+
+pfr_adv_def <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'def', summary_level = 'week')
+```
+
+Joining time
+
+```{r}
+roster_off <- roster %>% full_join(official_player_stats, by = c("gsis_id" = "player_id"), suffix = c('', '.off_pl_stat'), keep = FALSE, na_matches = 'never') 
+
+roster_off <- roster_off %>% distinct() %>% select(- (grep(".off_pl_stat", names(roster_off))))
+
+roster_off_pl_kick <- roster_off %>% full_join(player_stats_kicking, by = c("gsis_id" = "player_id", 'week' = 'week'), suffix = c('', '.xyz'), keep = FALSE)
+         
+roster_off_pl_kick <- roster_off_pl_kick %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(roster_off_pl_kick))))    
+
+# use official player stats, don't use 'player stats', use player_stats_kick
+
+roster_off_pl_kick_com <- roster_off_pl_kick %>%
+  left_join(combine, by = c('pfr_id' = 'pfr_id'), suffix = c('', '.xyz'), keep = FALSE)
+
+roster_off_pl_kick_com <- roster_off_pl_kick_com %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(roster_off_pl_kick_com)))) 
 ```
 
 ```{r}
