@@ -13,9 +13,15 @@ library(tidymodels)
 
 official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
 
-player_stats <- load_player_stats(seasons = most_recent_season(), stat_type = 'offense')
+player_stats <- load_player_stats(
+    seasons = most_recent_season(),
+    stat_type = 'offense'
+  )
 
-player_stats_kicking <- load_player_stats(seasons = most_recent_season(), stat_type = 'kicking')
+player_stats_kicking <- load_player_stats(
+    seasons = most_recent_season(),
+    stat_type = 'kicking'
+  )
 
 combine <- load_combine(seasons = TRUE)
 
@@ -25,31 +31,71 @@ team_data <- load_teams()
 
 injuries <- load_injuries()
 
-next_gen_pass <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'passing')
+next_gen_pass <- load_nextgen_stats(
+    seasons = most_recent_season(),
+    stat_type = 'passing'
+  )
 
-next_gen_rec <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'receiving')
+next_gen_rec <- load_nextgen_stats(
+    seasons = most_recent_season(),
+    stat_type = 'receiving'
+  )
 
-next_gen_rush <- load_nextgen_stats(seasons = most_recent_season(), stat_type = 'rushing')
+next_gen_rush <- load_nextgen_stats(
+    seasons = most_recent_season(),
+    stat_type = 'rushing'
+  )
 
 snap_counts <- load_snap_counts(seasons = most_recent_season())
 
-pfr_adv_pass <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'pass', summary_level = 'week')
+pfr_adv_pass <- load_pfr_advstats(
+    seasons = most_recent_season(),
+    stat_type = 'pass',
+    summary_level = 'week'
+  )
 
-pfr_adv_rec <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'rec', summary_level = 'week')
+pfr_adv_rec <- load_pfr_advstats(
+    seasons = most_recent_season(),
+    stat_type = 'rec',
+    summary_level = 'week'
+  )
 
-pfr_adv_rush <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'rush', summary_level = 'week')
+pfr_adv_rush <- load_pfr_advstats(
+    seasons = most_recent_season(),
+    stat_type = 'rush',
+    summary_level = 'week'
+  )
 
-pfr_adv_def <- load_pfr_advstats(seasons = most_recent_season(), stat_type = 'def', summary_level = 'week')
+pfr_adv_def <- load_pfr_advstats(
+    seasons = most_recent_season(),
+    stat_type = 'def',
+    summary_level = 'week'
+  )
 ```
 
 Joining time
 
 ```{r}
-roster_off <- roster %>% full_join(official_player_stats, by = c("gsis_id" = "player_id"), suffix = c('', '.off_pl_stat'), keep = FALSE, na_matches = 'never') 
+roster_off <- roster %>%
+  full_join(
+      official_player_stats,
+      by = c("gsis_id" = "player_id"),
+      suffix = c('', '.off_pl_stat'),
+      keep = FALSE,
+      na_matches = 'never'
+    ) 
 
-roster_off <- roster_off %>% distinct() %>% select(- (grep(".off_pl_stat", names(roster_off))))
+roster_off <- roster_off %>%
+  distinct() %>%
+  select(- (grep(".off_pl_stat", names(roster_off))))
 
-roster_off_pl_kick <- roster_off %>% full_join(player_stats_kicking, by = c("gsis_id" = "player_id", 'week' = 'week'), suffix = c('', '.xyz'), keep = FALSE)
+roster_off_pl_kick <- roster_off %>%
+  full_join(
+      player_stats_kicking,
+      by = c("gsis_id" = "player_id", 'week' = 'week'),
+      suffix = c('', '.xyz'),
+      keep = FALSE
+    )
          
 roster_off_pl_kick <- roster_off_pl_kick %>%
   distinct() %>%
@@ -58,13 +104,20 @@ roster_off_pl_kick <- roster_off_pl_kick %>%
 # use official player stats, don't use 'player stats', use player_stats_kick
 
 roster_off_pl_kick_com <- roster_off_pl_kick %>%
-  left_join(combine, by = c('pfr_id' = 'pfr_id'), suffix = c('', '.xyz'), keep = FALSE, na_matches = 'never')
+  left_join(
+      combine,
+      by = c('pfr_id' = 'pfr_id'),
+      suffix = c('', '.xyz'),
+      keep = FALSE,
+      na_matches = 'never'
+    )
 
 roster_off_pl_kick_com <- roster_off_pl_kick_com %>%
   distinct() %>%
   select(- (grep(".xyz", names(roster_off_pl_kick_com)))) 
 
-injuries <- injuries %>% mutate(season = as.numeric(season), week = as.numeric(week))
+injuries <- injuries %>%
+  mutate(season = as.numeric(season), week = as.numeric(week))
 
 roster_off_pl_kick_com_team_inj <- roster_off_pl_kick_com %>%
   left_join(
@@ -144,21 +197,27 @@ all_data <- all_data %>%
   select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school, fg_made_list, fg_missed_list, fg_blocked_list))
 
 ## better way to do this?
-all_data <- all_data %>% filter(!is.na(fantasy_points_ppr)) %>% mutate_if(is.character, as.factor)
+all_data <- all_data %>%
+  filter(!is.na(fantasy_points_ppr)) %>%
+  mutate_if(is.character, as.factor)
 ```
 
 ```{r}
+all_data <- all_data %>%select(-c(season, last_name, first_name))
+
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
-  update_role(gsis_id, game_id, new_role = "id") %>%
+  update_role(gsis_id, game_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
   step_dummy(all_nominal_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
-  step_corr(all_numeric_predictors(), threshold = 0.9)
+  step_corr(all_numeric_predictors(), threshold = 0.9) %>%
+  step_pca(all_numeric_predictors(), num_comp = 50)
   
-prep(recipe, all_data)
 
-all_data %>% select(gsis_id, full_name) %>% distinct
+prep <- prep(recipe, all_data)
+
+juice <- juice(prep(recipe, all_data))
 ```
 
 
@@ -176,5 +235,28 @@ calculate_ff_points <- function(all_data) {
 }
 
 calculate_ff_points(all_data) %>% select(ff_pts, fantasy_points) %>% arrange(ff_pts)
+```
+
+
+Graphs
+
+```{r}
+
+
+all_data %>%
+  group_by(gsis_id) %>%
+  summary(mean = mean(fantasy_points)) %>%
+  ggplot(aes(x = mean)) +
+  geom_histogram() +
+  geom_labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
+
+all_data %>%
+  ggplot(aes(x = fantasy_points)) +
+  geom_histogram() +
+  facet_wrap(~recent_team)
+
+all_data %>%
+  
+  
 ```
 
