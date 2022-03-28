@@ -343,3 +343,13 @@ all_data %>%
   summary()
 ```
 
+```{r}
+ff_data <- readr::read_csv('/Users/Marion/Desktop/math386/project/nfl-machine-learning/fantasy_pts.txt')
+
+ff_data <- ff_data %>% mutate_if(is.factor, as.character)
+
+ff_data <- ff_data %>% mutate(Player = stringr::str_replace_all(ff_data$Player, "[:punct:]", ""))
+
+all_data <- lef
+```
+
