@@ -13,7 +13,7 @@ library(tidymodels)
 
 official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
 
-player_stats <- load_player_stats(seasons = most_recent_season(), stat_type = 'offense', )
+player_stats <- load_player_stats(seasons = most_recent_season(), stat_type = 'offense')
 
 player_stats_kicking <- load_player_stats(seasons = most_recent_season(), stat_type = 'kicking')
 
@@ -79,6 +79,69 @@ roster_off_pl_kick_com_team_inj <- roster_off_pl_kick_com_team %>%
     suffix = c('', '.xyz'),
     keep = FALSE
   )
+
+roster_off_pl_kick_com_team_inj <- roster_off_pl_kick_com_team_inj %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(roster_off_pl_kick_com_team_inj)))) 
+
+all_next_gen <- roster_off_pl_kick_com_team_inj %>%
+  left_join(
+    next_gen_pass,
+    by = c('gsis_id' = 'player_gsis_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  ) %>% left_join(
+    next_gen_rec,
+    by = c('gsis_id' = 'player_gsis_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  ) %>% left_join(
+    next_gen_rush,
+    by = c('gsis_id' = 'player_gsis_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  )
+
+all_next_gen <- all_next_gen %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(all_next_gen))))
+
+all_pfr <- all_next_gen %>% left_join(
+    pfr_adv_def,
+    by = c('pfr_id' = 'pfr_player_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  ) %>% left_join(
+    pfr_adv_pass,
+    by = c('pfr_id' = 'pfr_player_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  ) %>% left_join(
+    pfr_adv_rush,
+    by = c('pfr_id' = 'pfr_player_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  ) %>% left_join(
+    pfr_adv_rec,
+    by = c('pfr_id' = 'pfr_player_id', 'season' = 'season', 'week' = 'week'),
+    suffix = c('', '.xyz'),
+    keep = FALSE
+  )
+
+all_pfr <- all_pfr %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(all_pfr))))
+
+all_data <- all_pfr %>% left_join(
+  snap_counts,
+  by = c('pfr_id' = 'pfr_player_id', 'season' = 'season', 'week' = 'week'),
+  suffix = c('', '.xyz'),
+  keep = FALSE
+)
+
+all_data <- all_data %>%
+  distinct() %>%
+  select(- (grep(".xyz", names(all_data))))
 ```
 
 ```{r}
