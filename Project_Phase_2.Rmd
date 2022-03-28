@@ -278,11 +278,30 @@ all_data %>%
 
 all_data %>%
   group_by(gsis_id) %>%
-  summarise(mean = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url) %>%
-  ggplot(aes(x = full_name, y = mean)) + 
-  theme_minimal() +
+  summarise(mean = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url, position = position) %>%
+  filter(mean >= 20) %>%
+  ggplot() + 
+  geom_col(aes(x = gsis_id, y = mean, color = position)) +
+  theme_minimal() + 
   theme(axis.text.x = element_nfl_headshot())
+
+
+all_data %>%
+  summarise(mean = mean(fantasy_points), recent_team = recent_team) %>%
+  arrange(mean) %>%
+  ggplot(aes(x = recent_team, y = mean)) +
+  geom_col(aes(color = recent_team, fill = recent_team), width = 0.5) +
+  scale_color_nfl(type = "secondary") +
+  scale_fill_nfl(alpha = 0.4) +
+  theme_minimal() +
+  theme(axis.text.x = element_nfl_logo())
   
 colnames(all_data)
+```
+
+# Numeric Summary
+
+```{r}
+
 ```
 
