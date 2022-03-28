@@ -198,7 +198,7 @@ all_data <- all_data %>%
 
 ## better way to do this?
 all_data <- all_data %>%
-  filter(!is.na(fantasy_points_ppr)) %>%
+ # filter(!is.na(fantasy_points_ppr)) %>%
   mutate_if(is.character, as.factor)
 ```
 
@@ -350,6 +350,17 @@ ff_data <- ff_data %>% mutate_if(is.factor, as.character)
 
 ff_data <- ff_data %>% mutate(Player = stringr::str_replace_all(ff_data$Player, "[:punct:]", ""))
 
-all_data <- lef
+all_data <- all_data %>% full_join(ff_data, by = c('pfr_id' = 'ID')) %>% distinct()
+
+all_data %>% filter(!is.na(FantPt) | !is.na(fantasy_points)) 
+
+
+all_data %>% group_by(gsis_id) %>% summarise(full_name = full_name, FantPt = FantPt, FDPt = FDPt, fantasy_points = sum(fantasy_points)) %>% arrange(-FantPt) %>% distinct()
+
+5552
+
+5718
+
+5748
 ```
 
