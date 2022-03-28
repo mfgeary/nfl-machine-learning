@@ -302,6 +302,44 @@ colnames(all_data)
 # Numeric Summary
 
 ```{r}
+all_data %>%
+  group_by(recent_team) %>%
+  summarise(
+      recent_team = recent_team,
+      avg_fantasy_pts = mean(fantasy_points),
+      pts_sd = sd(fantasy_points),
+      min = min(fantasy_points),
+      max = max(fantasy_points)
+    ) %>%
+  distinct() %>%
+  arrange(-avg_fantasy_pts)
 
+pos_levelr <- forcats::fct_lump_min(
+    all_data$position, min = 10,
+    other_level = "Other"
+  )
+
+all_data %>%
+  mutate(pos_level = pos_levelr) %>%
+  filter(!is.na(pos_level)) %>%
+  group_by(pos_level) %>%
+  summarise(
+      avg_fantasy_pts = mean(fantasy_points),
+      number = n()
+    ) %>%
+  distinct() %>%
+  arrange(-avg_fantasy_pts)
+
+all_data %>%
+  group_by(gsis_id) %>%
+  summarise(
+      name = full_name,
+      position = position,
+      avg_fantasy_pts = mean(fantasy_points)
+  ) %>% distinct() %>%
+  arrange(-avg_fantasy_pts)
+
+all_data %>%
+  summary()
 ```
 
