@@ -142,7 +142,18 @@ all_data <- all_pfr %>% left_join(
 all_data <- all_data %>%
   distinct() %>%
   select(- (grep(".xyz", names(all_data))))
+
+
 ```
+
+```{r}
+all_data <- all_data %>%
+  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player))
+
+
+```
+
+
 
 ```{r}
 save.image("nfl-project.Rdata")
