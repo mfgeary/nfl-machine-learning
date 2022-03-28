@@ -203,17 +203,16 @@ all_data <- all_data %>%
 ```
 
 ```{r}
-all_data <- all_data %>%select(-c(season, last_name, first_name))
+all_data <- all_data %>% select(-c(season, last_name, first_name))
 
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, game_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
-  step_dummy(all_nominal_predictors()) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  step_pca(all_numeric_predictors(), num_comp = 50)
-  
+  step_dummy(all_nominal_predictors())
+
 
 prep <- prep(recipe, all_data)
 
@@ -245,18 +244,45 @@ Graphs
 
 all_data %>%
   group_by(gsis_id) %>%
-  summary(mean = mean(fantasy_points)) %>%
+  summarise(mean = mean(fantasy_points)) %>%
   ggplot(aes(x = mean)) +
   geom_histogram() +
-  geom_labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
+  labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
 
 all_data %>%
   ggplot(aes(x = fantasy_points)) +
-  geom_histogram() +
-  facet_wrap(~recent_team)
+  geom_histogram(aes(color = recent_team, fill = recent_team)) +
+  facet_wrap(~recent_team) +
+  scale_color_nfl(type = 'secondary') +
+  scale_fill_nfl() +
+  theme(legend.position = 'none') +
+  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Team')
+
+all_data %>% 
+  filter(!is.na(position)) %>%
+  ggplot(aes(x = fantasy_points)) + 
+  geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
+  facet_wrap(~ position) +
+  theme(legend.position = 'none') + 
+  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Position')
+  
+all_data %>%
+  group_by(gsis_id) %>% 
+  summarise(mean = mean(fantasy_points), wopr = mean(wopr, na.rm = T), position = position) %>%
+  ggplot(aes(x = mean, y = wopr, color = position)) + 
+  geom_jitter(alpha = 0.7) + 
+  scale_color_manual(values = c("QB" = 'red',
+                                "WR" = 'blue',
+                                "RB" = 'yellow',
+                                'TE' = 'green'))
 
 all_data %>%
+  group_by(gsis_id) %>%
+  summarise(mean = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url) %>%
+  ggplot(aes(x = full_name, y = mean)) + 
+  theme_minimal() +
+  theme(axis.text.x = element_nfl_headshot())
   
-  
+colnames(all_data)
 ```
 
