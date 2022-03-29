@@ -10,6 +10,22 @@ knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 library(knitr)
 ```
 
+## Research Questions
+
+For my research, I am exploring NFL data and the performance of players in Fantasy Football. I am using data on the 2021 NFL season to predict the performance of NFL players in terms of Fantasy Football points. My main goal is to answer the following research questions:
+
+**How many fantasy points will this player score in their next game?**
+**Which player will score the most fantasy points in the next game?**
+
+## Description of Data
+
+My data comes from the package `nflverse`, a package for manipulating NFL data styled after `tidyverse` (check out the [documentation](https://nflverse.nflverse.com) and [repository](https://github.com/nflverse)). The `nflverse` package contains extensive data on NFL games, teams, and players that is sourced from ESPN, the NFL, Pro Football Reference, and more. I will be using data from the 2021 season to answer my research questions. In order to use all available data to make a good predictive model, I joined multiple tables to form my final data frame. The data frame `official_player_stats` contains data on player performance per game, including fantasy points earned. This is the central data set for this research. `combine` contains data about all players' performance at the NFL Scouting Combine prior to entering the League and being drafted to a team. `roster` contains biographical and team information about each player. `injuries` contains data about injuries for each week of the season. `next_gen_pass`, `next_gen_rush`, and `next_gen_rec` contain advanced weekly stats from NFL Next Gen Stats. These are more advanced metrics for measuring player performance. Similarly, `pfr_adv_pass`, `pfr_adv_rush`, `pfr_adv_rec`, and `pfr_adv_def` contain advanced stats on each player from Pro Football Reference. `snap_counts` contains data indicating the number of plays in which a player participated in a given week. All these data sets have been combined into one data set, `all_data`. All analysis will be done using this table containing the most comprehensive data on player performance.
+
+The data frame, `team_data`, is also imported below. It contains data about each NFL team and is useful for visualizations.
+
+#### Load Data
+
+Start by loading all the needed. Some functions have a `stat_type` parameter that indicates what type of stat to pull data for. For each function, all the options for this are used so that every available stat can be added to `all_data`. The one exception to this is `stat_type = kicking` in `load_player_stats()`. This was omitted because `nflverse` does not include Fantasy Points data for kickers, so predictions about performance could not be made for these players.
 
 ```{r}
 library(skimr)
@@ -18,16 +34,6 @@ library(tidymodels)
 load('nfl-project.Rdata')
 
 official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
-
-player_stats <- load_player_stats(
-    seasons = most_recent_season(),
-    stat_type = 'offense'
-  )
-
-player_stats_kicking <- load_player_stats(
-    seasons = most_recent_season(),
-    stat_type = 'kicking'
-  )
 
 combine <- load_combine(seasons = TRUE)
 
@@ -79,7 +85,9 @@ pfr_adv_def <- load_pfr_advstats(
   )
 ```
 
-Joining time
+#### Join Data Sets
+
+Join the data sets using player IDs as the join conditions. `gsis_id`, or NFL Game Statistics and Information System, is used when present in both tibbles since it is the NFL's official player ID system. `pfr_id`, or Pro Football Reference ID, is used for joining Pro Football Reference data sets. For weekly data, the tibbles are joined by both id and week so that the data is associated with the correct player and game. After each join, the resulting tibble is cleaned to remove redundant columns and rows.
 
 ```{r}
 roster_off <- roster %>%
@@ -94,8 +102,6 @@ roster_off <- roster %>%
 roster_off <- roster_off %>%
   distinct() %>%
   select(- (grep(".off_pl_stat", names(roster_off))))
-
-# use official player stats, don't use 'player stats', use player_stats_kick
 
 roster_off_pl_kick_com <- roster_off %>%
   left_join(
@@ -183,21 +189,25 @@ all_data <- all_pfr %>% left_join(
 all_data <- all_data %>%
   distinct() %>%
   select(- (grep(".xyz", names(all_data))))
-
 ```
 
+
+
 ```{r}
+
 all_data <- all_data %>%
   select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school))
 
-## better way to do this?
 all_data <- all_data %>%
   filter(!is.na(fantasy_points_ppr)) %>%
   mutate_if(is.character, as.factor)
+
+all_data <- all_data %>% select(-c(season, last_name, first_name))
 ```
 
+
 ```{r}
-all_data <- all_data %>% select(-c(season, last_name, first_name))
+
 
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, game_id, full_name, new_role = "id") %>%
