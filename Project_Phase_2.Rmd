@@ -5,11 +5,17 @@ date: '2022-03-27'
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+library(knitr)
+```
 
 
 ```{r}
+library(skimr)
 library(nflverse)
 library(tidymodels)
+load('nfl-project.Rdata')
 
 official_player_stats <- calculate_player_stats(load_pbp(), weekly = TRUE)
 
@@ -89,21 +95,9 @@ roster_off <- roster_off %>%
   distinct() %>%
   select(- (grep(".off_pl_stat", names(roster_off))))
 
-roster_off_pl_kick <- roster_off %>%
-  full_join(
-      player_stats_kicking,
-      by = c("gsis_id" = "player_id", 'week' = 'week'),
-      suffix = c('', '.xyz'),
-      keep = FALSE
-    )
-         
-roster_off_pl_kick <- roster_off_pl_kick %>%
-  distinct() %>%
-  select(- (grep(".xyz", names(roster_off_pl_kick))))    
-
 # use official player stats, don't use 'player stats', use player_stats_kick
 
-roster_off_pl_kick_com <- roster_off_pl_kick %>%
+roster_off_pl_kick_com <- roster_off %>%
   left_join(
       combine,
       by = c('pfr_id' = 'pfr_id'),
@@ -194,11 +188,11 @@ all_data <- all_data %>%
 
 ```{r}
 all_data <- all_data %>%
-  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school, fg_made_list, fg_missed_list, fg_blocked_list))
+  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school))
 
 ## better way to do this?
 all_data <- all_data %>%
- # filter(!is.na(fantasy_points_ppr)) %>%
+  filter(!is.na(fantasy_points_ppr)) %>%
   mutate_if(is.character, as.factor)
 ```
 
@@ -224,24 +218,9 @@ juice <- juice(prep(recipe, all_data))
 save.image("nfl-project.Rdata")
 ```
 
-
-
-```{r}
-calculate_ff_points <- function(all_data) {
-  all_data <- all_data %>% mutate_if(is.numeric, ~replace(., is.na(.), 0))
-  all_data <- all_data %>% add_column(ff_pts = (all_data$pass_yards / 25) + (all_data$pass_touchdowns * 4) + (all_data$interceptions * -2) + (all_data$passing_2pt_conversions * 2) + (all_data$rush_touchdowns * 6) + (all_data$rush_yards / 10) + (all_data$rushing_2pt_conversions * 2) + (all_data$receiving_tds * 6) + (all_data$receiving_yards / 10) + (all_data$receiving_2pt_conversions * 2) + ((all_data$fg_made_0_19 + all_data$fg_made_20_29 + all_data$fg_made_30_39) * 3) + (all_data$fg_made_40_49 * 4) + (all_data$fg_made_50_59 * 5) + (all_data$fg_made_60_ * 6) + (all_data$pat_made * 1) + (all_data$fg_missed * -1) + ((all_data$sack_fumbles_lost + all_data$rushing_fumbles_lost + all_data$receiving_fumbles_lost) * -2) + (all_data$def_sacks) + (all_data$def_ints * 2))
-  return(all_data)
-}
-
-calculate_ff_points(all_data) %>% select(ff_pts, fantasy_points) %>% arrange(ff_pts)
-```
-
-
 Graphs
 
 ```{r}
-
-
 all_data %>%
   group_by(gsis_id) %>%
   summarise(mean = mean(fantasy_points)) %>%
@@ -295,8 +274,6 @@ all_data %>%
   scale_fill_nfl(alpha = 0.4) +
   theme_minimal() +
   theme(axis.text.x = element_nfl_logo())
-  
-colnames(all_data)
 ```
 
 # Numeric Summary
@@ -339,8 +316,18 @@ all_data %>%
   ) %>% distinct() %>%
   arrange(-avg_fantasy_pts)
 
-all_data %>%
-  summary()
+my_skim(all_data)
+
+my_skim <- skim_with(
+    base = sfl(complete_rate = complete_rate, n_missing = n_missing),
+    factor = sfl(n_unique = n_unique),
+    numeric = sfl(
+        mean = ~mean(., na.rm = TRUE),
+        sd = ~stats::sd(., na.rm = TRUE),
+        iqr = ~IQR(., na.rm = TRUE)
+      ),
+    append = FALSE
+  )
 ```
 
 ```{r}
@@ -352,15 +339,9 @@ ff_data <- ff_data %>% mutate(Player = stringr::str_replace_all(ff_data$Player, 
 
 all_data <- all_data %>% full_join(ff_data, by = c('pfr_id' = 'ID')) %>% distinct()
 
-all_data %>% filter(!is.na(FantPt) | !is.na(fantasy_points)) 
-
+all_data %>% filter(xor(!is.na(FantPt), !is.na(fantasy_points))) %>% select(full_name, FantPt, fantasy_points)
 
 all_data %>% group_by(gsis_id) %>% summarise(full_name = full_name, FantPt = FantPt, FDPt = FDPt, fantasy_points = sum(fantasy_points)) %>% arrange(-FantPt) %>% distinct()
 
-5552
-
-5718
-
-5748
 ```
 
