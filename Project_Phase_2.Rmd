@@ -206,7 +206,13 @@ all_data <- all_data %>%
   mutate_if(is.character, as.factor)
 ```
 
+The final data set has 5717 rows and 160 variables. The data gives information about 660 NFL players in all games that they played during the 2021 season. Each player participated in between 1 and 22 games during the regular season and playoffs.
+
 #### Recipe
+
+For my research, I will use `fantasy_points` as the outcome for modeling. These are fantasy points as calculate by the ESPN standard scoring system. `fantasy_points_ppr` is another metric for fantasy points using the PPR scoring system. I may use this result for comparison at the end of my analysis.
+
+In the recipe, data that should remain in the data set but are not predictors are assigned to appropriate roles. All data numeric data is normalized and highly correlated predictors are removed. I intentionally did this step before creating dummy variables, since I want the nominal predictors to stay in the data. I also chose not to impute data because different positions have different statistics, so the missing values should be missing or 0 to indicate that player's performance in stats not relating to their position.
 
 ```{r}
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
@@ -222,70 +228,30 @@ prep <- prep(recipe, all_data)
 juice <- juice(prep(recipe, all_data))
 ```
 
+The following 39 predictors are removed due to high correlation (> 0.9). I notice that almost all data for defensive players is removed. This will likely not be a problem because defense has very little impact on fantasy football scoring.
 
 ```{r}
-save.image("nfl-project.Rdata")
+prep[["steps"]][[2]][["removals"]]
 ```
 
-Graphs
+## Numeric Summaries
 
 ```{r}
-all_data %>%
-  group_by(gsis_id) %>%
-  summarise(mean = mean(fantasy_points)) %>%
-  ggplot(aes(x = mean)) +
-  geom_histogram() +
-  labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
+my_skim <- skim_with(
+    base = sfl(complete_rate = complete_rate, n_missing = n_missing),
+    factor = sfl(n_unique = n_unique),
+    numeric = sfl(
+        mean = ~mean(., na.rm = TRUE),
+        sd = ~stats::sd(., na.rm = TRUE),
+        iqr = ~IQR(., na.rm = TRUE)
+      ),
+    append = FALSE
+  )
 
-all_data %>%
-  ggplot(aes(x = fantasy_points)) +
-  geom_histogram(aes(color = recent_team, fill = recent_team)) +
-  facet_wrap(~recent_team) +
-  scale_color_nfl(type = 'secondary') +
-  scale_fill_nfl() +
-  theme(legend.position = 'none') +
-  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Team')
-
-all_data %>% 
-  filter(!is.na(position)) %>%
-  ggplot(aes(x = fantasy_points)) + 
-  geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
-  facet_wrap(~ position) +
-  theme(legend.position = 'none') + 
-  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Position')
-  
-all_data %>%
-  group_by(gsis_id) %>% 
-  summarise(mean = mean(fantasy_points), wopr = mean(wopr, na.rm = T), position = position) %>%
-  ggplot(aes(x = mean, y = wopr, color = position)) + 
-  geom_jitter(alpha = 0.7) + 
-  scale_color_manual(values = c("QB" = 'red',
-                                "WR" = 'blue',
-                                "RB" = 'yellow',
-                                'TE' = 'green'))
-
-all_data %>%
-  group_by(gsis_id) %>%
-  summarise(mean = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url, position = position) %>%
-  filter(mean >= 20) %>%
-  ggplot() + 
-  geom_col(aes(x = gsis_id, y = mean, color = position)) +
-  theme_minimal() + 
-  theme(axis.text.x = element_nfl_headshot())
-
-
-all_data %>%
-  summarise(mean = mean(fantasy_points), recent_team = recent_team) %>%
-  arrange(mean) %>%
-  ggplot(aes(x = recent_team, y = mean)) +
-  geom_col(aes(color = recent_team, fill = recent_team), width = 0.5) +
-  scale_color_nfl(type = "secondary") +
-  scale_fill_nfl(alpha = 0.4) +
-  theme_minimal() +
-  theme(axis.text.x = element_nfl_logo())
+my_skim(all_data)
 ```
 
-# Numeric Summary
+This analysis provides a brief overview of the data and the distribution of each variable. Notice that the `complete_rate` for the predictors is pretty variable - this is intentional. Some predictors will apply to every player, but many of them are specific to a certain position. The model should take position into account, and then use the appropriate data to assess the player based on their position.
 
 ```{r}
 all_data %>%
@@ -299,7 +265,11 @@ all_data %>%
     ) %>%
   distinct() %>%
   arrange(-avg_fantasy_pts)
+```
 
+From this tibble, we see the average fantasy points per team. The two Super Bowl competitors, `LA` and `CIN` are ranked first and third, indicating that good teams tend to have better fantasy point performances, while bad teams tend to have worse fantasy point performances. However, it is notable that this is not a perfectly linear relationship - `DAL` ranks second, and although they were a fairly good team, they were not as good as `CIN`.
+
+```{r}
 pos_levelr <- forcats::fct_lump_min(
     all_data$position, min = 10,
     other_level = "Other"
@@ -315,42 +285,87 @@ all_data %>%
     ) %>%
   distinct() %>%
   arrange(-avg_fantasy_pts)
+```
 
+In this summary, it is clear that player position has a significant impact on fantasy points scored, with the highest scoring players on the field scoring the most in fantasy points. Quarterbacks consistently score significantly more points than other positions.
+
+```{r}
 all_data %>%
   group_by(gsis_id) %>%
   summarise(
       name = full_name,
       position = position,
-      avg_fantasy_pts = mean(fantasy_points)
+      avg_fantasy_pts = mean(fantasy_points),
+      avg_points = mean(passing_tds + rushing_tds) * 7,
+      avg_yards = mean(passing_yards + rushing_yards)
   ) %>% distinct() %>%
   arrange(-avg_fantasy_pts)
-
-my_skim(all_data)
-
-my_skim <- skim_with(
-    base = sfl(complete_rate = complete_rate, n_missing = n_missing),
-    factor = sfl(n_unique = n_unique),
-    numeric = sfl(
-        mean = ~mean(., na.rm = TRUE),
-        sd = ~stats::sd(., na.rm = TRUE),
-        iqr = ~IQR(., na.rm = TRUE)
-      ),
-    append = FALSE
-  )
 ```
 
+We see that the highest performers in fantasy football are almost all quarterbacks. Typically, more points on the field leads to more points in fantasy football. Notice that the sole running back in the top 10 scored significantly fewer points than all quarterbacks. This is an indicator that different players score points differently, so different stats are important for different positions.
+
+## Data Visualiztion
+
 ```{r}
-ff_data <- readr::read_csv('/Users/Marion/Desktop/math386/project/nfl-machine-learning/fantasy_pts.txt')
+all_data %>%
+  group_by(gsis_id) %>%
+  summarise(mean = mean(fantasy_points)) %>%
+  ggplot(aes(x = mean)) +
+  geom_histogram(fill = 'cornflowerblue') +
+  labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
+```
 
-ff_data <- ff_data %>% mutate_if(is.factor, as.character)
+This plot shows the distribution of average fantasy points per player. The distribution is left skewed, as expected, showing that there are a few players who consistently score highly in fantasy points. However, most players score just above 0 points. Notice that some values are below zero as well - it is possible to score negative fantasy points for poor performance.
 
-ff_data <- ff_data %>% mutate(Player = stringr::str_replace_all(ff_data$Player, "[:punct:]", ""))
+```{r}
+all_data %>%
+  ggplot(aes(x = fantasy_points)) +
+  geom_histogram(aes(color = recent_team, fill = recent_team)) +
+  facet_wrap(~recent_team) +
+  scale_color_nfl(type = 'secondary') +
+  scale_fill_nfl() +
+  theme(legend.position = 'none') +
+  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Team')
+```
 
-all_data <- all_data %>% full_join(ff_data, by = c('pfr_id' = 'ID')) %>% distinct()
+This plot indicates the distribution of fantasy points by NFL team. High performing teams like the Super Bowl Champion LA Rams, `LA`, have a flatter, less skewed distribution, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have higher fantasy point scorers, while bad teams tend to have few high-scoring fantasy players.
 
-all_data %>% filter(xor(!is.na(FantPt), !is.na(fantasy_points))) %>% select(full_name, FantPt, fantasy_points)
+```{r}
+all_data %>% 
+  filter(!is.na(position)) %>%
+  ggplot(aes(x = fantasy_points)) + 
+  geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
+  facet_wrap(~ position) +
+  theme(legend.position = 'none') + 
+  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Position')
+```
 
-all_data %>% group_by(gsis_id) %>% summarise(full_name = full_name, FantPt = FantPt, FDPt = FDPt, fantasy_points = sum(fantasy_points)) %>% arrange(-FantPt) %>% distinct()
+This chart shows the distribution of fantasy points by position. Notice that `QB`, `RB`, `TE`, and `WR` score the most fantasy points. This is linked to the fact that most offensive players score highest in fantasy football, especially players who score more touchdowns and gain first downs. `QB` has the highest mean in the distribution, but `RB` has the highest overall score. This indicates that consistently, quarterbacks are the highest scorers in fantasy football, but running backs and wide recievers can have high-scoring individual games when they score lots of points on the field.
 
+```{r}  
+all_data %>%
+  group_by(gsis_id) %>% 
+  summarise(mean = mean(fantasy_points), wopr = mean(wopr, na.rm = T), position = position) %>%
+  ggplot(aes(x = mean, y = wopr, color = position)) + 
+  geom_jitter(alpha = 0.7) + 
+  scale_color_manual(values = c("QB" = 'red',
+                                "WR" = 'blue',
+                                "RB" = 'yellow',
+                                'TE' = 'green')) +
+  labs(x = "Average Fantasy Points", y = "Weighted Opportunity Rating", title = "Average Fantasy Points vs Weighted Opportunity Rating")
+```
+
+The Weighted Opportunity Rating, or WOPR, is a metric that indicates a player's impact with regard to their team. It shows what share of yards and passes are being targeted at that player versus other players on their team. From this chart, it is clear that WOPR is a strong linear predictor for wide receivers, tight ends, and running backs. We see that WOPR does not give much indication about the fantasy points scored by a quarterback.
+
+```{r}
+all_data %>%
+  group_by(gsis_id) %>%
+  summarise(avg = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url, position = position) %>%
+  distinct() %>%
+  filter(avg >= 20) %>%
+  ggplot() + 
+  geom_col(aes(x = gsis_id, y = avg, fill = position)) +
+  theme_minimal() + 
+  theme(axis.text.x = element_nfl_headshot())
 ```
 
