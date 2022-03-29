@@ -1,8 +1,12 @@
 ---
 title: "Project Phase 2"
 author: "Marion Geary"
-date: '2022-03-27'
-output: html_document
+date: '3/29/2022'
+output:
+  html_document:
+    highlight: kate
+  pdf_document:
+    highlight: tango
 ---
 
 ```{r setup, include=FALSE}
@@ -19,13 +23,15 @@ For my research, I am exploring NFL data and the performance of players in Fanta
 
 ## Description of Data
 
-My data comes from the package `nflverse`, a package for manipulating NFL data styled after `tidyverse` (check out the [documentation](https://nflverse.nflverse.com) and [repository](https://github.com/nflverse)). The `nflverse` package contains extensive data on NFL games, teams, and players that is sourced from ESPN, the NFL, Pro Football Reference, and more. I will be using data from the 2021 season to answer my research questions. In order to use all available data to make a good predictive model, I joined multiple tables to form my final data frame. The data frame `official_player_stats` contains data on player performance per game, including fantasy points earned. This is the central data set for this research. `combine` contains data about all players' performance at the NFL Scouting Combine prior to entering the League and being drafted to a team. `roster` contains biographical and team information about each player. `injuries` contains data about injuries for each week of the season. `next_gen_pass`, `next_gen_rush`, and `next_gen_rec` contain advanced weekly stats from NFL Next Gen Stats. These are more advanced metrics for measuring player performance. Similarly, `pfr_adv_pass`, `pfr_adv_rush`, `pfr_adv_rec`, and `pfr_adv_def` contain advanced stats on each player from Pro Football Reference. `snap_counts` contains data indicating the number of plays in which a player participated in a given week. All these data sets have been combined into one data set, `all_data`. All analysis will be done using this table containing the most comprehensive data on player performance.
+My data comes from the R package `nflverse`, a package for manipulating NFL data styled after `tidyverse` (check out the [documentation](https://nflverse.nflverse.com) and [repository](https://github.com/nflverse)). The `nflverse` package contains extensive data on NFL games, teams, and players that is sourced from ESPN, the NFL, Pro Football Reference, and more. I will be using data from the 2021 season to answer my research questions. 
+
+In order to use all available data to make a good predictive model, I joined multiple tables to form my final data frame. The data frame `official_player_stats` contains data on player performance per game, including fantasy points earned. This is the central data set for this research. `combine` contains data about all players' performance at the NFL Scouting Combine prior to entering the League and being drafted to a team. `roster` contains biographical and team information about each player. `injuries` contains data about injuries for each week of the season. `next_gen_pass`, `next_gen_rush`, and `next_gen_rec` contain advanced weekly stats from NFL Next Gen Stats. These are more advanced metrics for measuring player performance. Similarly, `pfr_adv_pass`, `pfr_adv_rush`, `pfr_adv_rec`, and `pfr_adv_def` contain advanced stats on each player from Pro Football Reference. `snap_counts` contains data indicating the number of plays in which a player participated in a given week. All these data sets have been combined into one data set, `all_data`. All analysis will be done using this table containing the most comprehensive data on player performance.
 
 The data frame, `team_data`, is also imported below. It contains data about each NFL team and is useful for visualizations.
 
 #### Load Data
 
-Start by loading all the needed. Some functions have a `stat_type` parameter that indicates what type of stat to pull data for. For each function, all the options for this are used so that every available stat can be added to `all_data`. The one exception to this is `stat_type = kicking` in `load_player_stats()`. This was omitted because `nflverse` does not include Fantasy Points data for kickers, so predictions about performance could not be made for these players.
+Start by loading all the needed data. Some functions have a `stat_type` parameter that indicates what type of stat to pull data for. For each function, all the options for `stat_type` are used so that every available stat can be added to `all_data`. The one exception to this is `stat_type = kicking` in `load_player_stats()`. This was omitted because `nflverse` does not include fantasy points data for kickers, so predictions about performance could not be made for these players.
 
 ```{r}
 library(skimr)
@@ -87,7 +93,7 @@ pfr_adv_def <- load_pfr_advstats(
 
 #### Join Data Sets
 
-Join the data sets using player IDs as the join conditions. `gsis_id`, or NFL Game Statistics and Information System, is used when present in both tibbles since it is the NFL's official player ID system. `pfr_id`, or Pro Football Reference ID, is used for joining Pro Football Reference data sets. For weekly data, the tibbles are joined by both id and week so that the data is associated with the correct player and game. After each join, the resulting tibble is cleaned to remove redundant columns and rows.
+Join the data sets using player IDs as the join conditions. `gsis_id`, or NFL Game Statistics and Information System ID, is used when present in both tibbles since it is the NFL's official player ID system. `pfr_id`, or Pro Football Reference ID, is used for joining Pro Football Reference data sets. For weekly data, the tibbles are joined by both id and week so that the data is associated with the correct player and game. After each join, the resulting tibble is cleaned to remove redundant columns and rows.
 
 ```{r}
 roster_off <- roster %>%
@@ -195,7 +201,12 @@ Superfluous variables are removed from `all_data`. This includes data that is re
 
 ```{r}
 all_data <- all_data %>%
-  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school, season, last_name, first_name))
+  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id,
+            fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified,
+            player_display_name, team_abbr, player_position, player_first_name,
+            player_last_name, player_short_name, player_jersey_number,
+            pfr_game_id, season_type, pfr_player_name, player, high_school,
+            season, last_name, first_name))
 ```
 
 Remove all rows where `fantasy_points` is `NA` because `fantasy_points` is the outcome in the model. `fantasy_points` will be used to train the model and assess its performance. In this step, we also mutate all character vectors to factors.
@@ -212,7 +223,7 @@ The final data set has 5717 rows and 160 variables. The data gives information a
 
 For my research, I will use `fantasy_points` as the outcome for modeling. These are fantasy points as calculate by the ESPN standard scoring system. `fantasy_points_ppr` is another metric for fantasy points using the PPR scoring system. I may use this result for comparison at the end of my analysis.
 
-In the recipe, data that should remain in the data set but are not predictors are assigned to appropriate roles. All data numeric data is normalized and highly correlated predictors are removed. I intentionally did this step before creating dummy variables, since I want the nominal predictors to stay in the data. I also chose not to impute data because different positions have different statistics, so the missing values should be missing or 0 to indicate that player's performance in stats not relating to their position.
+In the recipe, data that should remain in the data set but are not predictors are assigned to appropriate roles. All data numeric data is normalized and highly correlated predictors are removed. I intentionally removed highly correlated predictors before creating dummy variables since I want the nominal predictors to stay in the data. I also chose not to impute data because different positions have different statistics, so the missing values should be missing or 0 to indicate that player's performance (or lack thereof) in stats not relating to their position.
 
 ```{r}
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
@@ -281,13 +292,14 @@ all_data %>%
   group_by(pos_level) %>%
   summarise(
       avg_fantasy_pts = mean(fantasy_points),
-      number = n()
+      number = n(),
+      sd = sd(fantasy_points)
     ) %>%
   distinct() %>%
   arrange(-avg_fantasy_pts)
 ```
 
-In this summary, it is clear that player position has a significant impact on fantasy points scored, with the highest scoring players on the field scoring the most in fantasy points. Quarterbacks consistently score significantly more points than other positions.
+In this summary, it is clear that player position has a significant impact on fantasy points scored, with the highest scoring players on the field scoring the most in fantasy points. Quarterbacks consistently score significantly more points than other positions. It is also notable that quarterbacks have the highest standard deviation, showing that the fantasy points scored by quarterbacks are highly variable. They have the chance to score lots of fantasy points each game, but it is not a given that they will.
 
 ```{r}
 all_data %>%
@@ -312,10 +324,14 @@ all_data %>%
   summarise(mean = mean(fantasy_points)) %>%
   ggplot(aes(x = mean)) +
   geom_histogram(fill = 'cornflowerblue') +
-  labs(x = 'Average Fantasy Points', y = 'Number of Players', title = 'Average Fantasy Points Per Player')
+  labs(
+      x = 'Average Fantasy Points',
+      y = 'Number of Players',
+      title = 'Average Fantasy Points Per Player'
+    )
 ```
 
-This plot shows the distribution of average fantasy points per player. The distribution is left skewed, as expected, showing that there are a few players who consistently score highly in fantasy points. However, most players score just above 0 points. Notice that some values are below zero as well - it is possible to score negative fantasy points for poor performance.
+This plot shows the distribution of average fantasy points per player. The distribution is right skewed, as expected, showing that there are a few players who consistently score highly in fantasy points. However, most players score just above 0 points. Notice that some values are below zero as well - it is possible to score negative fantasy points for poor performance.
 
 ```{r}
 all_data %>%
@@ -325,7 +341,11 @@ all_data %>%
   scale_color_nfl(type = 'secondary') +
   scale_fill_nfl() +
   theme(legend.position = 'none') +
-  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Team')
+  labs(
+      x = 'Fantasy Points',
+      y = 'Count',
+      title = 'Distribution of Fantasy Points by Team'
+    )
 ```
 
 This plot indicates the distribution of fantasy points by NFL team. High performing teams like the Super Bowl Champion LA Rams, `LA`, have a flatter, less skewed distribution, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have higher fantasy point scorers, while bad teams tend to have few high-scoring fantasy players.
@@ -337,35 +357,36 @@ all_data %>%
   geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
   facet_wrap(~ position) +
   theme(legend.position = 'none') + 
-  labs(x = 'Fantasy Points', y = 'Count', title = 'Distribution of Fantasy Points by Position')
+  labs(
+      x = 'Fantasy Points',
+      y = 'Count',
+      title = 'Distribution of Fantasy Points by Position'
+    )
 ```
 
-This chart shows the distribution of fantasy points by position. Notice that `QB`, `RB`, `TE`, and `WR` score the most fantasy points. This is linked to the fact that most offensive players score highest in fantasy football, especially players who score more touchdowns and gain first downs. `QB` has the highest mean in the distribution, but `RB` has the highest overall score. This indicates that consistently, quarterbacks are the highest scorers in fantasy football, but running backs and wide recievers can have high-scoring individual games when they score lots of points on the field.
+This chart shows the distribution of fantasy points by position. Notice that `QB`, `RB`, `TE`, and `WR` score the most fantasy points. This is linked to the fact that offensive players score highest in fantasy football, especially players who score more touchdowns and gain more yards. `QB` has the highest mean in the distribution, but `RB` has the highest overall score. This indicates that consistently, quarterbacks are the highest scorers in fantasy football, but running backs and wide recievers can have high-scoring individual games when they score lots of points on the field.
 
 ```{r}  
 all_data %>%
   group_by(gsis_id) %>% 
-  summarise(mean = mean(fantasy_points), wopr = mean(wopr, na.rm = T), position = position) %>%
+  summarise(
+      mean = mean(fantasy_points),
+      wopr = mean(wopr, na.rm = T),
+      position = position
+    ) %>%
   ggplot(aes(x = mean, y = wopr, color = position)) + 
   geom_jitter(alpha = 0.7) + 
-  scale_color_manual(values = c("QB" = 'red',
-                                "WR" = 'blue',
-                                "RB" = 'yellow',
-                                'TE' = 'green')) +
-  labs(x = "Average Fantasy Points", y = "Weighted Opportunity Rating", title = "Average Fantasy Points vs Weighted Opportunity Rating")
+  scale_color_manual(values = c(
+    "QB" = 'red',
+    "WR" = 'blue',
+    "RB" = 'yellow',
+    'TE' = 'green')
+  ) + labs(
+      x = "Average Fantasy Points",
+      y = "Weighted Opportunity Rating",
+      title = "Average Fantasy Points vs Weighted Opportunity Rating"
+    )
 ```
 
 The Weighted Opportunity Rating, or WOPR, is a metric that indicates a player's impact with regard to their team. It shows what share of yards and passes are being targeted at that player versus other players on their team. From this chart, it is clear that WOPR is a strong linear predictor for wide receivers, tight ends, and running backs. We see that WOPR does not give much indication about the fantasy points scored by a quarterback.
-
-```{r}
-all_data %>%
-  group_by(gsis_id) %>%
-  summarise(avg = mean(fantasy_points), gsis_id = gsis_id, full_name = full_name, headshot_url = headshot_url, position = position) %>%
-  distinct() %>%
-  filter(avg >= 20) %>%
-  ggplot() + 
-  geom_col(aes(x = gsis_id, y = avg, fill = position)) +
-  theme_minimal() + 
-  theme(axis.text.x = element_nfl_headshot())
-```
 
