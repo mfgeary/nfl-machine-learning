@@ -191,24 +191,24 @@ all_data <- all_data %>%
   select(- (grep(".xyz", names(all_data))))
 ```
 
-
+Superfluous variables are removed from `all_data`. This includes data that is redundant or incomplete.
 
 ```{r}
-
 all_data <- all_data %>%
-  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school))
-
-all_data <- all_data %>%
-  filter(!is.na(fantasy_points_ppr)) %>%
-  mutate_if(is.character, as.factor)
-
-all_data <- all_data %>% select(-c(season, last_name, first_name))
+  select(-c(espn_id, sportradar_id, yahoo_id, rotowire_id, pff_id, pfr_id, fantasy_data_id, sleeper_id, player_name, cfb_id, pos, date_modified, player_display_name, team_abbr, player_position, player_first_name, player_last_name, player_short_name, player_jersey_number, pfr_game_id, season_type, pfr_player_name, player, high_school, season, last_name, first_name))
 ```
 
+Remove all rows where `fantasy_points` is `NA` because `fantasy_points` is the outcome in the model. `fantasy_points` will be used to train the model and assess its performance. In this step, we also mutate all character vectors to factors.
 
 ```{r}
+all_data <- all_data %>%
+  filter(!is.na(fantasy_points)) %>%
+  mutate_if(is.character, as.factor)
+```
 
+#### Recipe
 
+```{r}
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, game_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
@@ -216,7 +216,6 @@ recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
   step_dummy(all_nominal_predictors())
-
 
 prep <- prep(recipe, all_data)
 
