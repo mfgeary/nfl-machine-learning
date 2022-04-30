@@ -1,0 +1,239 @@
+---
+title: "Project_Phase_3_Geary"
+author: "Marion Geary"
+date: '2022-04-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(nflverse)
+library(tidymodels)
+load('nfl-project.Rdata')
+```
+
+```{r}
+
+```
+
+```{r}
+all_data <- all_data %>%
+  filter(!is.na(fantasy_points)) %>%
+  mutate_if(is.character, as.factor)
+
+# remove repeated stats
+all_data <- all_data %>% select(-c(pass_yards, pass_touchdowns, yards, rec_touchdowns, rush_attempts, rush_yards, avg_rush_yards, rush_touchdowns))
+
+colnames(all_data)
+```
+
+
+```{r}
+all_data <- all_data %>% group_by(gsis_id) %>%
+  mutate(
+      total_completions = cumsum(completions),
+      total_completions = lag(total_completions, default = 0),
+      total_attempts = cumsum(attempts),
+      total_attempts = lag(total_attempts, default = 0),
+      total_passing_yards = cumsum(passing_yards),
+      total_passing_yards = lag(total_passing_yards, default = 0),
+      total_passing_td = cumsum(passing_tds),
+      total_passing_td = lag(passing_tds, default = 0),
+      total_interceptions = cumsum(interceptions),
+      total_interceptions = lag(interceptions, default = 0),
+      total_sack_fumbles_lost = cumsum(sack_fumbles_lost),
+      total_sack_fumbles_lost = lag(sack_fumbles_lost, default = 0),
+      total_rushing_yards = cumsum(rushing_yards),
+      total_rushing_yards = lag(rushing_yards, default = 0),
+      total_rushing_tds = cumsum(rushing_tds),
+      total_rushing_tds = lag(rushing_tds, default = 0),
+      total_rushing_fumbles_lost = cumsum(rushing_fumbles_lost),
+      total_rushing_fumbles_lost = lag(rushing_fumbles_lost, default = 0),
+      total_receiving_yards = cumsum(receiving_yards),
+      total_receiving_yards = lag(receiving_yards, default = 0),
+      total_receiving_tds = cumsum(receiving_tds),
+      total_receiving_tds = lag(receiving_tds, default = 0),
+      total_receiving_fumbles_lost = cumsum(receiving_fumbles_lost),
+      total_receiving_fumbles_lost = lag(receiving_fumbles_lost, default = 0),
+      total_special_teams_tds = cumsum(special_teams_tds),
+      total_special_teams_tds = lag(special_teams_tds, default = 0),
+      total_def_ints = cumsum(def_ints),
+      total_def_ints = lag(total_def_ints, default = 0),
+      total_def_sacks = cumsum(def_sacks),
+      total_def_sacks = lag(total_def_sacks, default = 0),
+    ) %>%
+  ungroup() %>%
+  mutate(birth_date = as.Date(birth_date)) %>%
+  select(-c(completions, attempts, passing_yards, passing_tds, interceptions, 
+            sack_fumbles_lost, rushing_yards, rushing_tds, rushing_fumbles_lost, 
+            receiving_yards, receiving_tds, receiving_fumbles_lost, 
+            special_teams_tds, def_ints, def_sacks)
+    )
+
+all_data <- all_data %>%
+  group_by(gsis_id) %>%
+  mutate(
+      sacks = lag(cumsum(sacks), default = 0),
+      sack_yards = lag(cumsum(sack_yards), default = 0),
+      sack_fumbles = lag(cumsum(sack_fumbles), default = 0),
+      passing_air_yards = lag(cumsum(passing_air_yards), default = 0),
+      passing_yards_after_catch = lag(cumsum(passing_yards_after_catch), default = 0),
+      passing_first_downs = lag(cumsum(passing_first_downs), default = 0),
+      passing_epa = lag(passing_epa),
+      passing_2pt_conversions = lag(cumsum(passing_2pt_conversions)),
+      pacr = lag(pacr),
+      dakota = lag(dakota),
+      carries = lag(cumsum(carries), default = 0),
+      rushing_fumbles = lag(cumsum(rushing_fumbles), default = 0),
+      rushing_first_downs = lag(cumsum(rushing_first_downs), default = 0),
+      rushing_epa = lag(rushing_epa),
+      rushing_2pt_conversions = lag(cumsum(rushing_2pt_conversions)),
+      receptions = lag(cumsum(receptions), default = 0),
+      targets = lag(cumsum(targets), default = 0),
+      receiving_fumbles = lag(cumsum(receiving_fumbles), default = 0),
+      receiving_air_yards = lag(cumsum(receiving_air_yards), default = 0),
+      receiving_yards_after_catch = lag(cumsum(receiving_yards_after_catch), default = 0),
+      receiving_first_downs = lag(cumsum(receiving_first_downs), default = 0),
+      receiving_epa = lag(cumsum(receiving_epa)),
+      receiving_2pt_conversions = lag(cumsum(receiving_2pt_conversions)),
+      racr = lag(racr),
+      target_share = lag(target_share),
+      air_yards_share = lag(air_yards_share),
+      wopr = lag(wopr),
+      avg_time_to_throw = lag(avg_time_to_throw),
+      avg_completed_air_yards = lag(avg_completed_air_yards, default = 0),
+      avg_intended_air_yards = lag(avg_intended_air_yards, default = 0),
+      avg_air_yards_differential = lag(avg_air_yards_differential),
+      aggressiveness = lag(aggressiveness),
+      max_completed_air_distance = lag(max_completed_air_distance, default = 0),
+      avg_air_yards_to_sticks = lag(avg_air_yards_to_sticks),
+      passer_rating = lag(passer_rating),
+      completion_percentage = lag(completion_percentage),
+      completion_percentage_above_expectation = lag(completion_percentage_above_expectation),
+      avg_air_distance = lag(avg_air_distance),
+      max_air_distance = lag(max_air_distance), 
+      avg_cushion = lag(avg_cushion),
+      avg_separation = lag(avg_separation),
+      percent_share_of_intended_air_yards = lag(percent_share_of_intended_air_yards),
+      catch_percentage = lag(catch_percentage),
+      avg_yac = lag(avg_yac),
+      avg_yac_above_expectation = lag(avg_yac_above_expectation),
+      efficiency = lag(efficiency),
+      percent_attempts_gte_eight_defenders = lag(percent_attempts_gte_eight_defenders),
+      avg_time_to_los = lag(avg_time_to_los),
+      rush_yards_over_expected = lag(rush_yards_over_expected),
+      rush_yards_over_expected_per_att = lag(rush_yards_over_expected_per_att),
+      rush_pct_over_expected = lag(rush_pct_over_expected),
+      def_targets = lag(cumsum(def_targets)),
+      def_completions_allowed = lag(cumsum(def_completions_allowed)),
+      def_completion_pct = lag(def_completion_pct),
+      def_yards_allowed = lag(cumsum(def_yards_allowed)),
+      def_yards_allowed_per_cmp = lag(def_yards_allowed_per_cmp),
+      def_yards_allowed_per_tgt = lag(def_yards_allowed_per_tgt),
+      def_receiving_td_allowed = lag(cumsum(def_receiving_td_allowed)),
+      def_air_yards_completed = lag(cumsum(def_air_yards_completed)),
+      def_yards_after_catch = lag(cumsum(def_yards_after_catch)),
+      def_times_blitzed = lag(cumsum(def_times_blitzed)),
+      def_times_hurried = lag(cumsum(def_times_hurried)),
+      def_times_hitqb = lag(cumsum(def_times_hitqb)),
+      def_pressures = lag(cumsum(def_pressures)),
+      def_tackles_combined = lag(cumsum(def_tackles_combined)),
+      def_missed_tackles = lag(cumsum(def_missed_tackles)),
+      def_missed_tackle_pct = lag(def_missed_tackle_pct),
+      passing_drops = lag(cumsum(passing_drops)),
+      passing_drop_pct = lag(passing_drop_pct),
+      passing_bad_throws = lag(cumsum(passing_bad_throws)),
+      passing_bad_throw_pct = lag(passing_bad_throw_pct),
+      times_sacked = lag(cumsum(times_sacked)),
+      times_blitzed = lag(cumsum(times_blitzed)),
+      times_hurried = lag(cumsum(times_hurried)),
+      times_hit = lag(cumsum(times_hit)),
+      times_pressured = lag(cumsum(times_pressured)),
+      times_pressured_pct = lag(times_pressured_pct),
+      rushing_yards_before_contact = lag(cumsum(rushing_yards_before_contact)),
+      rushing_yards_before_contact_avg = lag(rushing_yards_before_contact_avg),
+      rushing_yards_after_contact = lag(cumsum(rushing_yards_after_contact)),
+      rushing_yards_after_contact_avg = lag(rushing_yards_after_contact_avg),
+      rushing_broken_tackles = lag(cumsum(rushing_broken_tackles)),
+      receiving_broken_tackles = lag(cumsum(receiving_broken_tackles)),
+      receiving_drop = lag(cumsum(receiving_drop)),
+      receiving_drop_pct = lag(receiving_drop_pct),
+      receiving_int = lag(cumsum(receiving_int)),
+      receiving_rat = lag(receiving_rat),
+      offense_snaps = lag(cumsum(offense_snaps)),
+      offense_pct = lag(offense_pct),
+      defense_snaps = lag(cumsum(defense_snaps)),
+      defense_pct = lag(defense_pct),
+      st_snaps = lag(cumsum(st_snaps)),
+      st_pct = lag(st_pct)
+    ) %>% ungroup()
+
+```
+
+
+```{r}
+
+all_data <- all_data %>%
+  mutate_if(is.character, as.factor)
+
+recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
+  update_role(gsis_id, game_id, full_name, new_role = "id") %>%
+  update_role(headshot_url, new_role = "graphics") %>%
+  update_role(fantasy_points_ppr, new_role = "comparison") %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_corr(all_numeric_predictors(), threshold = 0.9) %>%
+  step_dummy(all_nominal_predictors())
+
+xgb_model <- boost_tree(
+    mtry = tune(),
+    trees = tune(),
+    min_n = tune(),
+    tree_depth = tune(),
+    learn_rate = tune(),
+    loss_reduction = tune(),
+    sample_size = tune(),
+    stop_iter = tune()
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+xgb_param <- 
+   xgb_model %>% 
+   parameters() %>% 
+   finalize(x = all_data %>% select(-fantasy_points))
+
+xgb_tuning_grid <- grid_max_entropy(xgb_param, size = 10)
+
+xgb_wkflow <- workflow() %>%
+  add_recipe(recipe) %>%
+  add_model(xgb_model)
+
+nfl_folds <- vfold_cv(all_data, v = 2)
+
+xgb_tuned <- xgb_wkflow %>%
+  tune_grid(grid = xgb_tuning_grid, resamples = nfl_folds)
+
+xgb_tune_wkflow <- finalize_workflow(
+    xgb_wkflow,
+    select_best(xgb_tuned, "roc_auc")
+  )
+
+xgb_cv_fit <- xgb_tune_wkflow %>%
+  fit_resamples(resamples = nfl_folds)
+
+xgb_metrics <- collect_metrics(xgb_cv_fit)
+
+corr <- correlate(all_data %>% select(where(is.numeric))) %>%
+  rearrange() %>%  # rearrange by correlations
+  shave()
+
+library(corrr)
+
+fashion(corr)
+network_plot(corr, min_cor = .2)
+```
+
