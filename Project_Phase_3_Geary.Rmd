@@ -14,13 +14,7 @@ library(tidyverse)
 library(nflverse)
 library(tidymodels)
 load('nfl-project.Rdata')
-```
 
-```{r}
-
-```
-
-```{r}
 all_data <- all_data %>%
   filter(!is.na(fantasy_points)) %>%
   mutate_if(is.character, as.factor)
@@ -28,11 +22,6 @@ all_data <- all_data %>%
 # remove repeated stats
 all_data <- all_data %>% select(-c(pass_yards, pass_touchdowns, yards, rec_touchdowns, rush_attempts, rush_yards, avg_rush_yards, rush_touchdowns))
 
-colnames(all_data)
-```
-
-
-```{r}
 all_data <- all_data %>% group_by(gsis_id) %>%
   mutate(
       total_completions = cumsum(completions),
@@ -67,7 +56,6 @@ all_data <- all_data %>% group_by(gsis_id) %>%
       total_def_sacks = lag(total_def_sacks, default = 0),
     ) %>%
   ungroup() %>%
-  mutate(birth_date = as.Date(birth_date)) %>%
   select(-c(completions, attempts, passing_yards, passing_tds, interceptions, 
             sack_fumbles_lost, rushing_yards, rushing_tds, rushing_fumbles_lost, 
             receiving_yards, receiving_tds, receiving_fumbles_lost, 
@@ -172,21 +160,30 @@ all_data <- all_data %>%
       st_pct = lag(st_pct)
     ) %>% ungroup()
 
-```
-
-
-```{r}
+all_data <- all_data %>%
+  mutate(birth_date = as.Date(birth_date)) %>%
+  mutate(birth_year = lubridate::year(birth_date))
 
 all_data <- all_data %>%
-  mutate_if(is.character, as.factor)
+  select(-c(def_receiving_td_allowed, def_times_hitqb, def_missed_tackles,
+            total_def_ints, total_def_sacks, defense_pct, game_id,
+            report_secondary_injury, birth_date)) %>%
+  mutate_if(is.character, as.factor) %>%
+  mutate(
+     week = is.factor(week),
+     opponent = is.factor(opponent),
+     game_type = is.factor(game_type),
+     gsis_id = is.factor(gsis_id)
+    ) 
 
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
-  update_role(gsis_id, game_id, full_name, new_role = "id") %>%
+  update_role(gsis_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
-  step_normalize(all_numeric_predictors()) %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  step_dummy(all_nominal_predictors())
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_zv(all_predictors()) %>%
+  step_nzv(all_predictors())
 
 xgb_model <- boost_tree(
     mtry = tune(),
@@ -212,14 +209,16 @@ xgb_wkflow <- workflow() %>%
   add_recipe(recipe) %>%
   add_model(xgb_model)
 
-nfl_folds <- vfold_cv(all_data, v = 2)
+nfl_folds <- vfold_cv(all_data, v = 2, strata = position)
 
 xgb_tuned <- xgb_wkflow %>%
   tune_grid(grid = xgb_tuning_grid, resamples = nfl_folds)
 
+note<-xgb_tuned[[".metrics"]]
+
 xgb_tune_wkflow <- finalize_workflow(
     xgb_wkflow,
-    select_best(xgb_tuned, "roc_auc")
+    select_best(xgb_tuned, "rmse")
   )
 
 xgb_cv_fit <- xgb_tune_wkflow %>%
