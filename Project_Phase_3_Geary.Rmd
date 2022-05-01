@@ -16,6 +16,10 @@ library(tidymodels)
 load('nfl-project.Rdata')
 #save.image('nfl-project.Rdata')
 
+mycores <- parallel::detectCores(logical = FALSE)
+library(doMC)
+registerDoMC(cores = mycores)
+
 all_data <- all_data %>%
   filter(!is.na(fantasy_points)) %>%
   mutate_if(is.character, as.factor)
@@ -176,6 +180,11 @@ all_data <- all_data %>%
      game_type = is.factor(game_type),
      gsis_id = is.factor(gsis_id)
     ) 
+```
+
+
+```{r}
+set.seed(321)
 
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, full_name, new_role = "id") %>%
@@ -204,13 +213,13 @@ xgb_param <-
    parameters() %>% 
    finalize(x = all_data %>% select(-fantasy_points))
 
-xgb_tuning_grid <- grid_max_entropy(xgb_param, size = 10)
+xgb_tuning_grid <- grid_max_entropy(xgb_param, size = 100)
 
 xgb_wkflow <- workflow() %>%
   add_recipe(recipe) %>%
   add_model(xgb_model)
 
-nfl_folds <- vfold_cv(all_data, v = 2, strata = position)
+nfl_folds <- vfold_cv(all_data, v = 5, strata = position)
 
 xgb_tuned <- xgb_wkflow %>%
   tune_grid(grid = xgb_tuning_grid, resamples = nfl_folds)
@@ -226,6 +235,130 @@ xgb_cv_fit <- xgb_tune_wkflow %>%
   fit_resamples(resamples = nfl_folds)
 
 xgb_metrics <- collect_metrics(xgb_cv_fit)
+```
+
+```{r}
+svm_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
+  update_role(gsis_id, full_name, new_role = "id") %>%
+  update_role(headshot_url, new_role = "graphics") %>%
+  update_role(fantasy_points_ppr, new_role = "comparison") %>%
+  step_corr(all_numeric_predictors(), threshold = 0.9) %>%
+  #step_impute_knn(all_predictors(), neighbors = 5) %>%
+  step_impute_bag(all_predictors(), trees = 25) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_zv(all_predictors()) %>%
+  step_nzv(all_predictors())
+
+svm_rbf_model <- svm_rbf(cost = tune(), rbf_sigma = tune(), margin = tune()) %>%
+  set_engine("kernlab") %>%
+  set_mode("regression")
+
+svm_tuning_grid <- grid_max_entropy(parameters(svm_rbf_model), size = 100)
+
+svm_wkflow <- workflow() %>%
+  add_recipe(svm_recipe) %>%
+  add_model(svm_rbf_model)
+
+svm_tuned <- svm_wkflow %>%
+  tune_grid(grid = svm_tuning_grid, resamples = nfl_folds)
+
+svm_tune_wkflow <- finalize_workflow(
+    svm_wkflow,
+    select_best(svm_tuned, "rmse")
+  )
+
+svm_cv_fit <- svm_tune_wkflow %>%
+  fit_resamples(resamples = nfl_folds)
+
+svm_metrics <- collect_metrics(svm_cv_fit)
+```
+
+```{r}
+nn_model <- mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>%
+  set_engine("nnet") %>%
+  set_mode("regression")
+
+nn_tuning_grid <- grid_max_entropy(parameters(nn_model), size = 100)
+
+nn_wkflow <- workflow() %>%
+  add_recipe(svm_recipe) %>%
+  add_model(nn_model)
+
+nn_tuned <- nn_wkflow %>%
+  tune_grid(grid = nn_tuning_grid, resamples = nfl_folds)
+
+nn_tune_wkflow <- finalize_workflow(
+    nn_wkflow,
+    select_best(nn_tuned, "rmse")
+  )
+
+nn_cv_fit <- nn_tune_wkflow %>%
+  fit_resamples(resamples = nfl_folds)
+
+nn_metrics <- collect_metrics(nn_cv_fit)
+```
+
+```{r}
+rf_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
+  update_role(gsis_id, full_name, new_role = "id") %>%
+  update_role(headshot_url, new_role = "graphics") %>%
+  update_role(fantasy_points_ppr, new_role = "comparison") %>%
+  step_corr(all_numeric_predictors(), threshold = 0.9) %>%
+  #step_impute_knn(all_predictors(), neighbors = 5) %>%
+  step_impute_bag(all_predictors(), trees = 25) %>%
+  step_zv(all_predictors()) %>%
+  step_nzv(all_predictors())
+
+rf_model <- rand_forest(
+    mtry = tune(),
+    trees = tune(),
+    min_n = tune()
+  ) %>%
+  set_engine("ranger") %>%
+  set_mode("classification")
+
+rf_param <- 
+   rf_model %>% 
+   parameters() %>% 
+   finalize(x = all_data %>% select(-fantasy_points))
+
+rf_tuning_grid <- grid_max_entropy(rf_param, size = 100)
+
+rf_wkflow <- workflow() %>%
+  add_recipe(rf_recipe) %>%
+  add_model(rf_model)
+
+rf_tuned <- rf_wkflow %>%
+  tune_grid(grid = rf_tuning_grid, resamples = nfl_folds)
+
+rf_tune_wkflow <- finalize_workflow(
+    rf_wkflow,
+    select_best(rf_tuned, "rmse")
+  )
+
+rf_cv_fit <- rf_tune_wkflow %>%
+  fit_resamples(resamples = nfl_folds)
+
+rf_metrics <- collect_metrics(rf_cv_fit)
+```
+
+```{r}
+nfl_split <- initial_split(all_data, prop = 0.8, strata - position)
+nfl_train <- training(nfl_split)
+nfl_test <- testing(nfl_split)
+
+xgb_final_fit <- xgb_tune_wkflow %>% fit(data = nfl_train)
+xgb_final_test <- augment(xgb_cv_fit, new_data = nfl_test)
+
+svm_final_fit <- svm_tune_wkflow %>% fit(data = nfl_train)
+svm_final_test <- augment(svm_cv_fit, new_data = nfl_test)
+
+nn_final_fit <- nn_tune_wkflow %>% fit(data = nfl_train)
+nn_final_test <- augment(nn_cv_fit, new_data = nfl_test)
+
+rf_final_fit <- rf_tune_wkflow %>% fit(data = nfl_train)
+rf_final_test <- augment(rf_cv_fit, new_data = nfl_test)
 ```
 
 
