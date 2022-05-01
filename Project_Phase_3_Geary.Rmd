@@ -14,6 +14,7 @@ library(tidyverse)
 library(nflverse)
 library(tidymodels)
 load('nfl-project.Rdata')
+#save.image('nfl-project.Rdata')
 
 all_data <- all_data %>%
   filter(!is.na(fantasy_points)) %>%
@@ -225,14 +226,6 @@ xgb_cv_fit <- xgb_tune_wkflow %>%
   fit_resamples(resamples = nfl_folds)
 
 xgb_metrics <- collect_metrics(xgb_cv_fit)
-
-corr <- correlate(all_data %>% select(where(is.numeric))) %>%
-  rearrange() %>%  # rearrange by correlations
-  shave()
-
-library(corrr)
-
-fashion(corr)
-network_plot(corr, min_cor = .2)
 ```
+
 
