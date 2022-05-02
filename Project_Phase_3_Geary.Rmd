@@ -14,7 +14,7 @@ library(tidyverse)
 library(nflverse)
 library(tidymodels)
 load('nfl-project.Rdata')
-#save.image('nfl-project.Rdata')
+save.image('nfl-project.Rdata')
 
 mycores <- parallel::detectCores(logical = FALSE)
 library(doMC)
@@ -183,7 +183,7 @@ all_data <- all_data %>%
 ```
 
 
-```{r}
+```{r, eval = F}
 set.seed(321)
 
 recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
@@ -243,18 +243,20 @@ svm_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  #step_impute_knn(all_predictors(), neighbors = 5) %>%
-  step_impute_bag(all_predictors(), trees = 25) %>%
+  step_impute_knn(all_predictors(), neighbors = 3) %>%
+  #step_impute_bag(all_predictors(), trees = 5) %>%
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
   step_normalize(all_numeric_predictors()) %>%
   step_zv(all_predictors()) %>%
   step_nzv(all_predictors())
 
+nfl_folds <- vfold_cv(all_data, v = 2, strata = position)
+
 svm_rbf_model <- svm_rbf(cost = tune(), rbf_sigma = tune(), margin = tune()) %>%
   set_engine("kernlab") %>%
   set_mode("regression")
 
-svm_tuning_grid <- grid_max_entropy(parameters(svm_rbf_model), size = 100)
+svm_tuning_grid <- grid_max_entropy(parameters(svm_rbf_model), size = 50)
 
 svm_wkflow <- workflow() %>%
   add_recipe(svm_recipe) %>%
@@ -279,7 +281,7 @@ nn_model <- mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>%
   set_engine("nnet") %>%
   set_mode("regression")
 
-nn_tuning_grid <- grid_max_entropy(parameters(nn_model), size = 100)
+nn_tuning_grid <- grid_max_entropy(parameters(nn_model), size = 50)
 
 nn_wkflow <- workflow() %>%
   add_recipe(svm_recipe) %>%
@@ -305,8 +307,8 @@ rf_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  #step_impute_knn(all_predictors(), neighbors = 5) %>%
-  step_impute_bag(all_predictors(), trees = 25) %>%
+  step_impute_knn(all_predictors(), neighbors = 3) %>%
+  #step_impute_bag(all_predictors(), trees = 5) %>%
   step_zv(all_predictors()) %>%
   step_nzv(all_predictors())
 
@@ -323,7 +325,7 @@ rf_param <-
    parameters() %>% 
    finalize(x = all_data %>% select(-fantasy_points))
 
-rf_tuning_grid <- grid_max_entropy(rf_param, size = 100)
+rf_tuning_grid <- grid_max_entropy(rf_param, size = 50)
 
 rf_wkflow <- workflow() %>%
   add_recipe(rf_recipe) %>%
@@ -344,21 +346,22 @@ rf_metrics <- collect_metrics(rf_cv_fit)
 ```
 
 ```{r}
-nfl_split <- initial_split(all_data, prop = 0.8, strata - position)
+set.seed(321)
+nfl_split <- initial_split(all_data, prop = 0.8, strata = position)
 nfl_train <- training(nfl_split)
 nfl_test <- testing(nfl_split)
 
 xgb_final_fit <- xgb_tune_wkflow %>% fit(data = nfl_train)
-xgb_final_test <- augment(xgb_cv_fit, new_data = nfl_test)
+xgb_final_test <- augment(xgb_final_fit, new_data = nfl_test)
 
 svm_final_fit <- svm_tune_wkflow %>% fit(data = nfl_train)
-svm_final_test <- augment(svm_cv_fit, new_data = nfl_test)
+svm_final_test <- augment(svm_final_fit, new_data = nfl_test)
 
 nn_final_fit <- nn_tune_wkflow %>% fit(data = nfl_train)
-nn_final_test <- augment(nn_cv_fit, new_data = nfl_test)
+nn_final_test <- augment(nn_final_fit, new_data = nfl_test)
 
 rf_final_fit <- rf_tune_wkflow %>% fit(data = nfl_train)
-rf_final_test <- augment(rf_cv_fit, new_data = nfl_test)
+rf_final_test <- augment(rf_final_fit, new_data = nfl_test)
 ```
 
 
