@@ -346,6 +346,32 @@ rf_metrics <- collect_metrics(rf_cv_fit)
 ```
 
 ```{r}
+elastic_model <- linear_reg(penalty = tune(), mixture = tune()) %>%
+  set_mode("regression") %>%
+  set_engine("glmnet")
+
+elastic_tuning_grid <- grid_max_entropy(parameters(elastic_model), size = 50)
+
+elastic_wkflow <- workflow() %>%
+  add_recipe(recipe) %>%
+  add_model(elastic_model)
+
+elastic_tuned <- elastic_wkflow %>%
+  tune_grid(grid = elastic_tuning_grid, resamples = nfl_folds)
+
+elastic_tune_wkflow <- finalize_workflow(
+    elastic_wkflow,
+    select_best(rf_tuned, "rmse")
+  )
+
+elastic_cv_fit <- elastic_tune_wkflow %>%
+  fit_resamples(resamples = nfl_folds)
+
+elastic_metrics <- collect_metrics(elastic_cv_fit)
+```
+
+
+```{r}
 set.seed(321)
 nfl_split <- initial_split(all_data, prop = 0.8, strata = position)
 nfl_train <- training(nfl_split)
@@ -362,6 +388,9 @@ nn_final_test <- augment(nn_final_fit, new_data = nfl_test)
 
 rf_final_fit <- rf_tune_wkflow %>% fit(data = nfl_train)
 rf_final_test <- augment(rf_final_fit, new_data = nfl_test)
+
+elastic_final_fit <- elastic_tune_wkflow %>% fit(data = nfl_train)
+elastic_final_test <- augment(elastic_final_fit, new_data = nfl_test)
 ```
 
 
