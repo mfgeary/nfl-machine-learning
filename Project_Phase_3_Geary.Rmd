@@ -397,4 +397,52 @@ elastic_final_fit <- elastic_tune_wkflow %>% fit(data = nfl_train)
 elastic_final_test <- augment(elastic_final_fit, new_data = nfl_test)
 ```
 
+```{r}
+cv_metrics_table <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xgb_metrics$mean[1], "R^2" = xgb_metrics$mean[2]) %>%
+  add_row(
+      "Model"="Radial SVM",
+      "RMSE"= svm_metrics$mean[1],
+      "R^2" =svm_metrics$mean[2]
+    ) %>% add_row(
+      "Model"="Neural Net",
+      "RMSE"= nn_metrics$mean[1],
+      "R^2" =nn_metrics$mean[2]
+    ) %>% add_row(
+      "Model"="Random Forest",
+      "RMSE"= rf_metrics$mean[1],
+      "R^2" =rf_metrics$mean[2]
+    ) %>% add_row(
+      "Model"="Elastic Net",
+      "RMSE"= elastic_metrics$mean[1],
+      "R^2" = elastic_metrics$mean[2]
+    )
+```
+
+```{r}
+project_metrics <- metric_set(rmse, rsq)
+xgb_final_metrics <- project_metrics(xgb_final_test, truth = fantasy_points, estimate = .pred)
+svm_final_metrics <- project_metrics(svm_final_test, truth = fantasy_points, estimate = .pred)
+nn_final_metrics <- project_metrics(nn_final_test, truth = fantasy_points, estimate = .pred)
+rf_final_metrics <- project_metrics(rf_final_test, truth = fantasy_points, estimate = .pred)
+elastic_final_metrics <- project_metrics(elastic_final_test, truth = fantasy_points, estimate = .pred)
+
+final_metrics_table <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xgb_final_metrics$.estimate[1], "R^2" = xgb_final_metrics$.estimate[2]) %>%
+  add_row(
+      "Model"="Radial SVM",
+      "RMSE"= svm_final_metrics$.estimate[1],
+      "R^2" =svm_final_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Neural Net",
+      "RMSE"= nn_final_metrics$.estimate[1],
+      "R^2" =nn_final_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Random Forest",
+      "RMSE"= rf_final_metrics$.estimate[1],
+      "R^2" =rf_final_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Elastic Net",
+      "RMSE"= elastic_final_metrics$.estimate[1],
+      "R^2" = elastic_final_metrics$.estimate[2]
+    )
+```
 
