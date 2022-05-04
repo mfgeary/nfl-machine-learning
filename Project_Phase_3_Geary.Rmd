@@ -496,5 +496,13 @@ For my research, I aim to answer the following questions:
 **How many fantasy points will this player score in their next game?**
 **Which player will score the most fantasy points in the next game?**
 
-In order to answer my research questions, I use data from `nflverse`, a package created for `R`. 
+In order to answer my research questions, I use data from `nflverse`, a package created for `R`. The `nflverse` collects weekly player performance data in the forms of statistics and advanced metrics as well as static player data such as NFL combine performance. I combine all of the available data into one data frame to perform modeling. I am focusing specifically on data from the 2021-2022 NFL season.
+
+Fantasy football points are calculated as a linear combination of various player performance statistics. Different leagues use slightly different calculations, but I use (standard fantasy points)[https://www.espn.com/fantasy/football/ffl/story?page=fflrulesstandardscoring] for the player scoring system. My outcome, `fantasy_points`, indicates the number of standard fantasy points that a player scored each week. 
+
+In order to create a predictive model that can be used to estimate fantasy points before a game is played, I used the player's performance from the previous week and season totals of statistics through the prior week to as predictors in the model. With these data modifications, the model can be used on real data in future seasons to estimate performance before a game has even been played.
+
+## Exploratory Data Analysis
+
+
 
