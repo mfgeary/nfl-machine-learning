@@ -524,20 +524,22 @@ all_data %>%
 
 ```{r}
 player_summary <- all_data %>% 
+  mutate(mean = mean(fantasy_points)) %>%
   group_by(position) %>%
   summarize(
-      count = n(),
       fantasy_points_avg = mean(fantasy_points),
+      distance_mean = fantasy_points_avg - mean,
       sd = sd(fantasy_points, na.rm = T),
-      scoring_players = n_distinct(gsis_id)
+      scoring_players = n_distinct(gsis_id),
     ) %>%
-  arrange(-count) %>%
+  distinct() %>%
+  ungroup() %>%
+  arrange(-scoring_players) %>%
   slice_head(n = 5)
 
 team_summary <- all_data %>%
   group_by(team) %>%
   summarize(
-      count = n(),
       fantasy_points_avg = mean(fantasy_points),
       sd = sd(fantasy_points, na.rm = T),
       scoring_players = n_distinct(gsis_id)
@@ -550,7 +552,7 @@ library(knitr)
 player_summary %>% kable(
     "latex",
     caption = "A summary of the dataset stratified by player position.",
-    col.names = c("Position", "Count", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
+    col.names = c("Position", "Count", "Avg Fantasy Points", "Distance from Overall Avg Fantasy Points","Standard Deviation", "Scoring Players")
   )
 
 team_summary %>% kable(
@@ -575,25 +577,11 @@ all_data %>%
       caption = 'The distribution of fantasy points scored by throughout the season on each NFL team.',
       tag = 'Figure 2'
     )
-
-
-all_data %>% 
-  filter(!is.na(position)) %>%
-  group_by(gsis_id) %>%
-  summarise(mean = mean(fantasy_points), position = position) %>%
-  ggplot(aes(x = mean)) + 
-  geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
-  facet_wrap(~ position) +
-  theme(legend.position = 'none') + 
-  labs(
-      x = 'Fantasy Points',
-      y = 'Count',
-      title = 'Distribution of Average Fantasy Points by Position',
-      caption = 'The distribution of average fantasy points scored by each player in each NFL position.',
-      tag = 'Figure 3'
-  )
 ```
 
-Fantasy football points are scored as a function of real statistics from performance in NFL games.
+Fantasy football points are scored as a function of real statistics from performance in NFL games. Since much of the scoring is related to scoring touchdowns and gaining yards in NFL games, defensive players play a very small role in fantasy football. The majority of players score few points per game. In `Figure 1`, we see that the distribution of average fantasy points scored per player is right skewed. This indicates that while a few star players typically score highly in fantasy football, most players tend to score very few points each game. Note that players can score negative fantasy points as well. `Table 1` shows how the average fantasy points scored per player is largely tied to the player's position on the field. We observe that quarterbacks, the highest scoring position, score on average 7.41 points more than all positions. Wide receivers and running backs also tend to be high scoring positions. This is tied to the fact that these positions are very involved in gaining more yards on the field and scoring points. Notice that these high scoring positions tend to have very high standard deviations. Every position has some outstanding players who score very highly along with some poor performers, resulting in large spreads. The positions with the most players tend to have the greatest standard deviations. This also points to the fact that position can not explain all of the variability in fantasy points scored. 
+
+`Table 2` shows that another explanation of the variability in fantasy points is the team that a player is associated with. Notice that the best performing teams in terms of fantasy points aligns with the best performing teams in the NFL season. We see that the Superbowl champions, the LA Rams (`LA`), score the highest in terms of average fantasy points. Their Superbowl competitors, the Cincinnati Bengals (`CIN`), also rank highly in this statistic. This indicates that a player on a high performing team is more likely to score higher fantasy points. Notice that the standard deviation is pretty consistent for all teams, showing that the amount of variance explained by `team` is more predictable. `Figure 2` further demonstrates the influence of team on fantasy points scored. High performing teams like `LA` and `CIN` have flatter, less skewed distributions, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have higher fantasy point scorers, while bad teams tend to have few high-scoring fantasy players.
+
 
 
