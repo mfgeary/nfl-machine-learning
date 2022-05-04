@@ -2,7 +2,9 @@
 title: "Project_Phase_3_Geary"
 author: "Marion Geary"
 date: '2022-04-13'
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -504,5 +506,94 @@ In order to create a predictive model that can be used to estimate fantasy point
 
 ## Exploratory Data Analysis
 
+```{r}
+all_data %>%
+  group_by(gsis_id) %>%
+  summarise(mean = mean(fantasy_points)) %>%
+  ggplot(aes(x = mean)) +
+  geom_histogram(fill = 'cornflowerblue') +
+  labs(
+      x = 'Average Fantasy Points',
+      y = 'Number of Players',
+      title = 'Average Fantasy Points Per Player',
+      caption = 'The distribution of average fantasy points scored per player throughout the 2021-2022 NFL season.',
+      tag = "Figure 1"
+    )
+```
+
+
+```{r}
+player_summary <- all_data %>% 
+  group_by(position) %>%
+  summarize(
+      count = n(),
+      fantasy_points_avg = mean(fantasy_points),
+      sd = sd(fantasy_points, na.rm = T),
+      scoring_players = n_distinct(gsis_id)
+    ) %>%
+  arrange(-count) %>%
+  slice_head(n = 5)
+
+team_summary <- all_data %>%
+  group_by(team) %>%
+  summarize(
+      count = n(),
+      fantasy_points_avg = mean(fantasy_points),
+      sd = sd(fantasy_points, na.rm = T),
+      scoring_players = n_distinct(gsis_id)
+    ) %>%
+  arrange(-fantasy_points_avg) %>%
+  slice_head(n = 10)
+
+library(knitr)
+
+player_summary %>% kable(
+    "latex",
+    caption = "A summary of the dataset stratified by player position.",
+    col.names = c("Position", "Count", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
+  )
+
+team_summary %>% kable(
+    "latex",
+    caption = "A summary of the dataset stratified by player team.",
+    col.names = c("Team", "Count", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
+  )
+```
+
+```{r}
+all_data %>%
+  ggplot(aes(x = fantasy_points)) +
+  geom_histogram(aes(color = recent_team, fill = recent_team)) +
+  facet_wrap(~recent_team) +
+  scale_color_nfl(type = 'secondary') +
+  scale_fill_nfl() +
+  theme(legend.position = 'none') +
+  labs(
+      x = 'Fantasy Points',
+      y = 'Count',
+      title = 'Distribution of Fantasy Points by Team',
+      caption = 'The distribution of fantasy points scored by throughout the season on each NFL team.',
+      tag = 'Figure 2'
+    )
+
+
+all_data %>% 
+  filter(!is.na(position)) %>%
+  group_by(gsis_id) %>%
+  summarise(mean = mean(fantasy_points), position = position) %>%
+  ggplot(aes(x = mean)) + 
+  geom_dotplot(color = 'black', alpha = 0.8, aes(fill = position)) +
+  facet_wrap(~ position) +
+  theme(legend.position = 'none') + 
+  labs(
+      x = 'Fantasy Points',
+      y = 'Count',
+      title = 'Distribution of Average Fantasy Points by Position',
+      caption = 'The distribution of average fantasy points scored by each player in each NFL position.',
+      tag = 'Figure 3'
+  )
+```
+
+Fantasy football points are scored as a function of real statistics from performance in NFL games.
 
 
