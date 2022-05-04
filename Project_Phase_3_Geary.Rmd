@@ -11,11 +11,13 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 ```{r}
 library(tidyverse)
-library(nflverse)
+#library(nflverse)
 library(tidymodels)
 load('nfl-project.Rdata')
-save.image('nfl-project.Rdata')
+#save.image('nfl-project.Rdata')
+```
 
+```{r, eval = F}
 mycores <- parallel::detectCores(logical = FALSE)
 library(doMC)
 registerDoMC(cores = mycores)
@@ -237,14 +239,12 @@ xgb_cv_fit <- xgb_tune_wkflow %>%
 xgb_metrics <- collect_metrics(xgb_cv_fit)
 ```
 
-```{r}
+```{r, eval = F}
 svm_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
   update_role(fantasy_points_ppr, new_role = "comparison") %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
-  #step_impute_knn(all_predictors(), neighbors = 3) %>%
-  #step_impute_bag(all_predictors(), trees = 5) %>%
   step_impute_median(all_numeric_predictors()) %>%
   step_impute_mode(all_nominal()) %>%
   step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
@@ -278,7 +278,7 @@ svm_cv_fit <- svm_tune_wkflow %>%
 svm_metrics <- collect_metrics(svm_cv_fit)
 ```
 
-```{r}
+```{r, eval = F}
 nn_model <- mlp(hidden_units = tune(), penalty = tune(), epochs = tune()) %>%
   set_engine("nnet") %>%
   set_mode("regression")
@@ -303,7 +303,7 @@ nn_cv_fit <- nn_tune_wkflow %>%
 nn_metrics <- collect_metrics(nn_cv_fit)
 ```
 
-```{r}
+```{r, eval = F}
 rf_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   update_role(gsis_id, full_name, new_role = "id") %>%
   update_role(headshot_url, new_role = "graphics") %>%
@@ -311,8 +311,6 @@ rf_recipe <- all_data %>% recipe(fantasy_points ~ .) %>%
   step_corr(all_numeric_predictors(), threshold = 0.9) %>%
   step_impute_median(all_numeric_predictors()) %>%
   step_impute_mode(all_nominal_predictors()) %>%
-  #step_impute_knn(all_predictors(), neighbors = 3) %>%
-  #step_impute_bag(all_predictors(), trees = 5) %>%
   step_zv(all_predictors()) %>%
   step_nzv(all_predictors())
 
@@ -375,7 +373,7 @@ elastic_metrics <- collect_metrics(elastic_cv_fit)
 ```
 
 
-```{r}
+```{r, eval = F}
 set.seed(321)
 nfl_split <- initial_split(all_data, prop = 0.8, strata = position)
 nfl_train <- training(nfl_split)
@@ -397,7 +395,7 @@ elastic_final_fit <- elastic_tune_wkflow %>% fit(data = nfl_train)
 elastic_final_test <- augment(elastic_final_fit, new_data = nfl_test)
 ```
 
-```{r}
+```{r, eval = F}
 cv_metrics_table <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xgb_metrics$mean[1], "R^2" = xgb_metrics$mean[2]) %>%
   add_row(
       "Model"="Radial SVM",
@@ -418,7 +416,7 @@ cv_metrics_table <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xgb_m
     )
 ```
 
-```{r}
+```{r, eval = F}
 project_metrics <- metric_set(rmse, rsq)
 xgb_final_metrics <- project_metrics(xgb_final_test, truth = fantasy_points, estimate = .pred)
 svm_final_metrics <- project_metrics(svm_final_test, truth = fantasy_points, estimate = .pred)
@@ -445,4 +443,58 @@ final_metrics_table <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xg
       "R^2" = elastic_final_metrics$.estimate[2]
     )
 ```
+
+```{r, eval = F}
+xgb_21_fit <- xgb_tune_wkflow %>% fit(data = all_data)
+xgb_21_test <- augment(xgb_final_fit, new_data = all_data_2020)
+
+svm_21_fit <- svm_tune_wkflow %>% fit(data = all_data)
+svm_21_test <- augment(svm_final_fit, new_data = all_data_2020)
+
+nn_21_fit <- nn_tune_wkflow %>% fit(data = all_data)
+nn_21_test <- augment(nn_final_fit, new_data = all_data_2020)
+
+rf_21_fit <- rf_tune_wkflow %>% fit(data = all_data)
+rf_21_test <- augment(rf_final_fit, new_data = all_data_2020)
+
+elastic_21_fit <- elastic_tune_wkflow %>% fit(data = all_data)
+elastic_21_test <- augment(elastic_final_fit, new_data = all_data_2020)
+```
+
+```{r, eval = F}
+xgb_21_metrics <- project_metrics(xgb_21_test, truth = fantasy_points, estimate = .pred)
+svm_21_metrics <- project_metrics(svm_21_test, truth = fantasy_points, estimate = .pred)
+nn_21_metrics <- project_metrics(nn_21_test, truth = fantasy_points, estimate = .pred)
+rf_21_metrics <- project_metrics(rf_21_test, truth = fantasy_points, estimate = .pred)
+elastic_21_metrics <- project_metrics(elastic_21_test, truth = fantasy_points, estimate = .pred)
+
+final_metrics_table_21 <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"= xgb_21_metrics$.estimate[1], "R^2" = xgb_21_metrics$.estimate[2]) %>%
+  add_row(
+      "Model"="Radial SVM",
+      "RMSE"= svm_21_metrics$.estimate[1],
+      "R^2" =svm_21_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Neural Net",
+      "RMSE"= nn_21_metrics$.estimate[1],
+      "R^2" =nn_21_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Random Forest",
+      "RMSE"= rf_21_metrics$.estimate[1],
+      "R^2" =rf_21_metrics$.estimate[2]
+    ) %>% add_row(
+      "Model"="Elastic Net",
+      "RMSE"= elastic_21_metrics$.estimate[1],
+      "R^2" = elastic_21_metrics$.estimate[2]
+    )
+```
+
+## Introduction
+
+In this paper, I will be analyzing NFL data in order to predict the amount of fantasy football points that a player will score in their upcoming games. This question originated from a project that I was completing for my software development class. My team wanted to build a football analytics app to help fantasy football players make data-driven decision when building their rosters and choosing who to play each week (check out our app (here)[https://github.com/jakesnyder7/pyball]). After working with the NFL data to create our analytics app, I became curious about how fantasy football performance predictions are made. I realized that with the comprehensive data I had gathered, I could apply machine learning techniques to derive my own model for predicting fantasy football points. Predictions for player performance are integral to helping fantasy football players make decisions, and accurate predictions can lead to a distinct advantage in winning fantasy football games.
+
+For my research, I aim to answer the following questions:
+**How many fantasy points will this player score in their next game?**
+**Which player will score the most fantasy points in the next game?**
+
+In order to answer my research questions, I use data from `nflverse`, a package created for `R`. 
 
