@@ -3,8 +3,8 @@ title: "Project_Phase_3_Geary"
 author: "Marion Geary"
 date: '2022-04-13'
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 ```{r}
 library(tidyverse)
-#library(nflverse)
+library(nflverse)
 library(tidymodels)
 load('nfl-project.Rdata')
 #save.image('nfl-project.Rdata')
@@ -552,13 +552,13 @@ library(knitr)
 player_summary %>% kable(
     "latex",
     caption = "A summary of the dataset stratified by player position.",
-    col.names = c("Position", "Count", "Avg Fantasy Points", "Distance from Overall Avg Fantasy Points","Standard Deviation", "Scoring Players")
+    col.names = c("Position", "Avg Fantasy Points", "Distance from Overall Avg Fantasy Points", "Standard Deviation", "Scoring Players")
   )
 
 team_summary %>% kable(
     "latex",
     caption = "A summary of the dataset stratified by player team.",
-    col.names = c("Team", "Count", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
+    col.names = c("Team", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
   )
 ```
 
@@ -583,5 +583,12 @@ Fantasy football points are scored as a function of real statistics from perform
 
 `Table 2` shows that another explanation of the variability in fantasy points is the team that a player is associated with. Notice that the best performing teams in terms of fantasy points aligns with the best performing teams in the NFL season. We see that the Superbowl champions, the LA Rams (`LA`), score the highest in terms of average fantasy points. Their Superbowl competitors, the Cincinnati Bengals (`CIN`), also rank highly in this statistic. This indicates that a player on a high performing team is more likely to score higher fantasy points. Notice that the standard deviation is pretty consistent for all teams, showing that the amount of variance explained by `team` is more predictable. `Figure 2` further demonstrates the influence of team on fantasy points scored. High performing teams like `LA` and `CIN` have flatter, less skewed distributions, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have higher fantasy point scorers, while bad teams tend to have few high-scoring fantasy players.
 
+## Methods
 
+In order to predict fantasy points, I compared the results of 5 different models. I began with a stochastic gradient boosting model which I expected to be the best performer. I chose the stochastic gradient boosting model because it does not require imputation. Since different player positions earn different statistics, there is a lot of missing data in my data table. For example, a quarterback has no data for receptions or field goals scored. The decision tree model handles missing data well, so I expected the best performance.
 
+Next, I used a few models that did require imputation, as most models do. For imputation, I wanted to use k-nearest neighbors, but it increased my computation times by days, and my limited computing power was not sufficient. Instead, I imputed numerical data using the median and nominal data using the mode. Both of these choices have limitations, but they were the most readily available in terms of computational time.
+
+I used a radial support vector machine because these tend to perform very highly on a wide variety of types of data sets. I chose a radial kernel because I knew that my data was not close to linear or polynomial. I also used a neural net because it is a similarly high performing model. I used the random forest model as well because I suspected that decisions tree would perform highly with my data. Finally, I used an elastic net model to provide a comparison using a type of linear regression.
+
+For all 5 models, I used cross-validation and tuning in order to maximize the performance of the models. The tuning parameters were chosen using a maximum entropy grid search. The best parameters were chosen based on the root mean square error.
