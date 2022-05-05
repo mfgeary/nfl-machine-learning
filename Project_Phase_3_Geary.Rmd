@@ -12,9 +12,11 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 ```{r}
+library(tidyverse)
 library(nflverse)
 library(tidymodels)
 library(knitr)
+library(kableExtra)
 load('nfl-project.Rdata')
 #save.image('nfl-project.Rdata')
 ```
@@ -492,7 +494,7 @@ final_metrics_table_21 <- tibble("Model"="Stochastic Gradient Boosting", "RMSE"=
 
 ## Introduction
 
-In this paper, I will be analyzing NFL data in order to predict the amount of fantasy football points that a player will score in their upcoming games. This question originated from a project that I was completing for my software development class. My team wanted to build a football analytics app to help fantasy football players make data-driven decision when building their rosters and choosing who to play each week (check out our app [here](https://github.com/jakesnyder7/pyball)). After working with the NFL data to create our analytics app, I became curious about how fantasy football performance predictions are made. I realized that with the comprehensive data I had gathered, I could apply machine learning techniques to derive my own model for predicting fantasy football points. Predictions for player performance are integral to helping fantasy football players make decisions, and accurate predictions can lead to a distinct advantage in winning fantasy football games.
+In this paper, I will be analyzing NFL data in order to predict the amount of fantasy football points that a player will score in their upcoming games. This question originated from a project that I was completing for my software development class. My team wanted to build a football analytics app to help fantasy football players make data-driven decisions when building their rosters and choosing who to play each week (check out our app [here](https://github.com/jakesnyder7/pyball)). After working with the NFL data to create our analytics app, I became curious about how fantasy football performance predictions are made. I realized that with the comprehensive data I had gathered, I could apply machine learning techniques to derive my own model for predicting fantasy football points. Predictions for player performance are integral to helping fantasy football players make decisions, and accurate predictions can lead to a distinct advantage in winning fantasy football games.
 
 For my research, I aim to answer the following questions:
 **How many fantasy points will this player score in their next game?**
@@ -502,15 +504,15 @@ In order to answer my research questions, I use data from `nflverse`, a package 
 
 Fantasy football points are calculated as a linear combination of various player performance statistics. Different leagues use slightly different calculations, but I use [standard fantasy points](https://www.espn.com/fantasy/football/ffl/story?page=fflrulesstandardscoring) for the player scoring system. My outcome, `fantasy_points`, indicates the number of standard fantasy points that a player scored each week. 
 
-In order to create a predictive model that can be used to estimate fantasy points before a game is played, I used the player's performance from the previous week and season totals of statistics through the prior week to as predictors in the model. With these data modifications, the model can be used on real data in future seasons to estimate performance before a game has even been played.
+In order to create a predictive model that can be used to estimate fantasy points before a game is played, I used the players' performance from the previous week and season totals of statistics through the prior week as predictors in the model. With these data modifications, the model can be used on real data in future seasons to estimate performance before a game has even been played.
 
 ## Exploratory Data Analysis
 
 ```{r}
 all_data %>%
-  group_by(gsis_id) %>%
-  summarise(mean = mean(fantasy_points)) %>%
-  ggplot(aes(x = mean)) +
+  group_by(full_name) %>%
+  summarize(avg = mean(fantasy_points)) %>%
+  ggplot(aes(x = avg)) +
   geom_histogram(fill = 'cornflowerblue') +
   labs(
       x = 'Average Fantasy Points',
@@ -546,23 +548,25 @@ team_summary <- all_data %>%
     ) %>%
   arrange(-fantasy_points_avg) %>%
   slice_head(n = 10)
-
-player_summary %>% kable(
-    "latex",
-    caption = "A summary of the dataset stratified by player position.",
-    col.names = c("Position", "Avg Fantasy Points", "Distance from Overall Avg Fantasy Points", "Standard Deviation", "Scoring Players")
-  )
 ```
 
-Fantasy football points are scored as a function of real statistics from performance in NFL games. Since much of the scoring is related to scoring touchdowns and gaining yards in NFL games, defensive players play a very small role in fantasy football. The majority of players score few points per game. In `Figure 1`, we see that the distribution of average fantasy points scored per player is right skewed. This indicates that while a few star players typically score highly in fantasy football, most players tend to score very few points each game. Note that players can score negative fantasy points as well. `Table 1` shows how the average fantasy points scored per player is largely tied to the player's position on the field. We observe that quarterbacks, the highest scoring position, score on average 7.41 points more than all positions. Wide receivers and running backs also tend to be high scoring positions. This is tied to the fact that these positions are very involved in gaining more yards on the field and scoring points. Notice that these high scoring positions tend to have very high standard deviations. Every position has some outstanding players who score very highly along with some poor performers, resulting in large spreads. The positions with the most players tend to have the greatest standard deviations. This also points to the fact that position can not explain all of the variability in fantasy points scored. 
+```{r}
+player_summary %>% kable(
+    caption = "Table 1: A summary of the dataset stratified by player position.",
+    col.names = c("Position", "Avg Fantasy Points", "Distance from Overall Avg Fantasy Points", "Standard Deviation", "Scoring Players")
+  ) %>% kable_classic(full_width = F)
+```
+
+Fantasy football points are scored as a function of real statistics from performance in NFL games. Since much of the scoring is related to scoring touchdowns and gaining yards in NFL games, defensive players play a very small role in fantasy football. The majority of players score few points per game. In `Figure 1`, we see that the distribution of average fantasy points scored per player is right skewed. This indicates that while a few star players typically score highly in fantasy football, most players tend to score very few points each game. Note that players can score negative fantasy points as well. `Table 1` shows how the average fantasy points scored per player is largely tied to the player's position on the field. We observe that quarterbacks, the highest scoring position, score on average 7.41 points more than the average for all positions. Wide receivers and running backs also tend to be high scoring positions. This is tied to the fact that these positions are very involved in gaining more yards on the field and scoring points. Notice that these high scoring positions tend to have very high standard deviations. Every position has some outstanding players who score very highly along with some poor performers, resulting in large spreads. The positions with the most players tend to have the greatest standard deviations. This also points to the fact that position can not explain all of the variability in fantasy points scored. 
 
 ```{r}
 team_summary %>% kable(
-    "latex",
-    caption = "A summary of the dataset stratified by player team.",
+    caption = "Table 2: A summary of the dataset stratified by team.",
     col.names = c("Team", "Avg Fantasy Points", "Standard Deviation", "Scoring Players")
-  )
+  ) %>% kable_classic(full_width = F)
+```
 
+```{r}
 all_data %>%
   ggplot(aes(x = fantasy_points)) +
   geom_histogram(aes(color = recent_team, fill = recent_team)) +
@@ -579,58 +583,64 @@ all_data %>%
     )
 ```
 
-`Table 2` shows that another explanation of the variability in fantasy points is the team that a player is associated with. Notice that the best performing teams in terms of fantasy points aligns with the best performing teams in the NFL season. We see that the Superbowl champions, the LA Rams (`LA`), score the highest in terms of average fantasy points. Their Superbowl competitors, the Cincinnati Bengals (`CIN`), also rank highly in this statistic. This indicates that a player on a high performing team is more likely to score higher fantasy points. Notice that the standard deviation is pretty consistent for all teams, showing that the amount of variance explained by `team` is more predictable. `Figure 2` further demonstrates the influence of team on fantasy points scored. High performing teams like `LA` and `CIN` have flatter, less skewed distributions, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have higher fantasy point scorers, while bad teams tend to have few high-scoring fantasy players.
+`Table 2` shows that another explanation of the variability in fantasy points is the team that a player is associated with. Notice that the best performing teams in terms of fantasy points align with the best performing teams in the NFL season. We see that the Superbowl champions, the LA Rams (`LA`), score the highest in terms of average fantasy points. Their Superbowl competitors, the Cincinnati Bengals (`CIN`), also rank highly in this statistic. This indicates that a player on a high performing team is more likely to score more fantasy points. Notice that the standard deviation is pretty consistent for all teams, showing that the amount of variance explained by `team` is more predictable. `Figure 2` further demonstrates the influence of team on fantasy points scored. High performing teams like `LA` and `CIN` have flatter, less skewed distributions, showing how their players more consistently score highly in fantasy points. In contrast, teams with poor performance like the New York Giants, `NYG`, and the Jacksonville Jaguars, `JAX`, have highly skewed distributions with most values between 0 and 10. This demonstrates that good teams tend to have more players who score highly in fantasy points, while bad teams tend to have few high-scoring fantasy players.
 
 ## Methods
 
-In order to predict fantasy points, I compared the results of 5 different models. I began with a stochastic gradient boosting model which I expected to be the best performer. I chose the stochastic gradient boosting model because it does not require imputation. Since different player positions earn different statistics, there is a lot of missing data in my data table. For example, a quarterback has no data for receptions or field goals scored. The decision tree model handles missing data well, so I expected the best performance.
+In order to predict fantasy points, I compared the results of 5 different machine learning models. I began with a stochastic gradient boosting model which I expected to be the best performer. I chose the stochastic gradient boosting model because it does not require imputation. Since different player positions earn different statistics, there is a lot of missing data in my data table. For example, a quarterback has no data for receptions or field goals scored. The decision tree model handles missing data well, so I expected the best performance.
 
 Next, I used a few models that did require imputation, as most models do. For imputation, I wanted to use k-nearest neighbors, but it increased my computation times by days, and my limited computing power was not sufficient. Instead, I imputed numerical data using the median and nominal data using the mode. Both of these choices have limitations, but they were the most readily available in terms of computational time.
 
-I used a radial support vector machine because these tend to perform very highly on a wide variety of types of data sets. I chose a radial kernel because I knew that my data was not close to linear or polynomial. I also used a neural net because it is a similarly high performing model. I used the random forest model as well because I suspected that decisions tree would perform highly with my data. Finally, I used an elastic net model to provide a comparison using a type of linear regression.
+I used a radial support vector machine because these tend to perform very highly on a wide variety of types of data sets. I chose a radial kernel for my support vector machine because I knew that my data was not close to linear or polynomial. I also used a neural net because it is a similarly high performing model. I used the random forest model as well because I suspected that decision trees would perform highly with my data. Finally, I used an elastic net model to provide a comparison using a type of linear regression.
 
-For all 5 models, I used cross-validation and tuning in order to maximize the performance of the models. The tuning parameters were chosen using a maximum entropy grid search. The best parameters were chosen as the ones that resulted in the lowest root mean square error (RMSE).
+For all 5 models, I used cross-validation and tuning in order to maximize the performance of the models. The tuning parameters were chosen using a maximum entropy grid search. The best parameters were chosen as the ones that resulted in the lowest root mean square error (`RMSE`).
 
 ## Results
 
-In order to test the performance of my models, I calculated the `RMSE` and `R^2` at three different points. First, I calculated the average `RMSE` and `R^2` from the results across the folds made with cross-validation. Next, I split the data into a test set and a training set, I trained the data with the training set, and I calculated the metrics with the test set. Finally, and most consequentially, I trained the models with the data from the 2021-2022 NFL season, and I tested my models using the data from the 2020-2021 NFL season. These results are the most important as they show how the model predicts on an entirely novel data set.
+In order to test the performance of my models, I calculated the `RMSE` and `R^2` at three different points. First, I calculated the average `RMSE` and `R^2` from the results across the folds made with cross-validation. Next, I split the data into a test set and a training set, I trained the data with the training set, and I calculated the metrics with the test set. Finally, and most consequentially, I trained the models with the data from the 2021-2022 NFL season, and I tested my models using the data from the 2020-2021 NFL season. These results are the most important as they show how the model predicts on an entirely novel data set. When I reference my results, I will refer to the results from testing my model with the 2020-2021 season data.
 
 
 ```{r}
-library(kableExtra)
-
-cv_metrics_table %>% bind_cols(
-final_metrics_table %>% select(RMSE, `R^2`)
-) %>% bind_cols(
-final_metrics_table_21 %>% select(RMSE, `R^2`)
-) %>% kable(col.names = c("Model", "RMSE", "R^2", "RMSE", "R^2", "RMSE", "R^2"), digits = 2) %>%
-  kable_classic() %>% add_header_above(c(" " = 1, "CV" = 2, "Split" = 2, "20-21 Data" = 2))
+cv_metrics_table %>%
+  bind_cols(
+      final_metrics_table %>% select(RMSE, `R^2`)
+    ) %>%
+  bind_cols(
+      final_metrics_table_21 %>% select(RMSE, `R^2`)
+    ) %>%
+  kable(
+      col.names = c("Model", "RMSE", "R^2", "RMSE", "R^2", "RMSE", "R^2"),
+      digits = 2,
+      caption = "Table 3: Model performance measured after cross-validation, testing on split data, and testing on data from the 2020-2021 NFL season."
+    ) %>%
+  kable_classic(full_width = F) %>%
+  add_header_above(c(" " = 1, "CV" = 2, "Split" = 2, "20-21 Data" = 2)) %>% 
+  column_spec(6, bold = T) %>%
+  column_spec(7, bold = T)
 ```
 
-From these results, we see from `Table 3` that the Stochastic Gradient Boosting model is clearly the best performer. In all test cases, it has both the lowest RMSE and highest R^2. When tested against the 2020-2021 NFL data, it results in a RMSE of 5.15 and an R^2 of 0.51. The high performance of the Stochastic Gradient Boosting model is likely due to both the superiority of the decision tree model and the fact that I did not need to impute data to use this model. The next best performer for all test cases is the random forest model, with an RMSE of 5.34 and R^2 of 0.47. This again indicates the superiority of decision tree models for the data set that I am using. The worst performing model in all cases is the elastic net, resulting in an RMSE of 6.81 and a meager R^2 of 0.14. The poor performance of the elastic net was expected due to the need to impute a large amount of data and the non-linear nature of the data.
+We see from `Table 3` that the stochastic gradient boosting model is clearly the best performer. In all test cases, it has both the lowest `RMSE` and highest `R^2`. When tested against the 2020-2021 NFL data, it results in a `RMSE` of 5.15 and an `R^2` of 0.51. The high performance of the stochastic gradient boosting model is likely due to both the superiority of the decision tree model and the fact that I did not need to impute data to use this model. The next best performer for all test cases is the random forest model, with an `RMSE` of 5.34 and `R^2` of 0.47. This again indicates the superiority of decision tree models for the data set that I am using. The worst performing model in all cases is the elastic net, resulting in an `RMSE` of 6.81 and a meager `R^2` of 0.14. The poor performance of the elastic net was expected due to the need to impute a large amount of data and the non-linear nature of the data.
 
-Overall, we see that even the best models can only explain up to about 51% of the variance. The lowest RMSE we see is 5.15, which is pretty significant in the world of fantasy football where 5 points means the difference between a mediocre performance and an amazing one.
-
+Overall, we see that even the best models can only explain up to about 51% of the variance. The lowest `RMSE` we see is 5.15, which is still pretty high in the world of fantasy football where 5 points means the difference between a mediocre performance and an amazing one.
 
 ```{r}
 xgb_21_test %>% ggplot() +
   geom_jitter(aes(x = fantasy_points, y = .pred), alpha = 0.2) + geom_abline(intercept = 0, slope = 1, color="red") + labs(
       x = 'Observed Fantasy Points',
-      y = 'Predicted Fantasy Points',
+      y = 'Predicted Fantasy Points (XGBoost)',
       title = 'Observed vs. Predicted Fantasy Points In XGBoost',
       tag = "Figure 3",
-      caption="Observed fantasy points vs. predicted fantasy points in 2020-2021 NFL data using the Stochastic Gradient Boosting model."
+      caption="Observed fantasy points vs. predicted fantasy points in 2020-2021 NFL data using the stochastic gradient boosting model."
   )
 ```
 
-From `Figure 3`, we see that the model tends to underpredict on outlier games were players score very highly. However, the model tends to slightly overpredict on games were player have very low fantasy scores. Generally, the model is pretty balanced in its predictions.
+From `Figure 3`, we see that the model tends to underpredict on outlier games were players score very highly. However, the model tends to slightly overpredict on games were players have very low fantasy scores. Generally, the model is pretty balanced in its predictions.
 
 ## Discussion
 
-Through modeling, I found that the best performing model is Stochastic Gradient Boosting. The model explains about 51% of the variance in fantasy points scored, and has an RMSE of 5.15. 
+Through modeling, I found that the best performing model is stochastic gradient boosting. The model explains about 51% of the variance in fantasy points scored, and has an `RMSE` of 5.15. 
 
-The results of this study limited are due to limited computational power. Ideally, I would use a better method such as k-nearest neighbors or a decision tree for imputing missing data. I think with better imputation, the radial support vector machine and the neural network models would perform comparably with the Stochastic Gradient Boosting. I also would like to use larger tuning grids for selecting the parameters for each model. These were limited due to computational time in this study. 
+The results of this study are limited due largely to limited computational power. Ideally, I would use a better method such as k-nearest neighbors or a decision tree for imputing missing data. I suspect that with better imputation, the radial support vector machine and the neural network models would perform comparably with the stochastic gradient boosting. Another limitation was the size of the tuning grids and the amount of folds in the cross validation. These were limited due to computational time in this study. Larger tuning grids for selecting the parameters for each model would likely refine the models and result in better predictive power. 
 
-For future research, a model would work well if it was tuned with all NFL data since the creation of Fantasy Football. This data is readily accessible, and it would help create the best model for predicting future fantasy football scores. One future area of research is predicting the performance of rookies before the NFL season even begins. A different data set with collegiate data would be required to predict the fantasy points of rookies before they step foot in an NFL game.
-
+For future research, a model would work well if it was tuned with all NFL data since the creation of Fantasy Football. This data is readily accessible, and it would help create the best model for predicting future fantasy football scores. While training this model would take a lot of computational power, more training data leads to better predictive power, so the model would be more prepared to make accurate fantasy football predictions. One future area of research is predicting the performance of rookies before the NFL season even begins. A different data set with collegiate data would be required to predict the fantasy points of rookies before they step foot in an NFL game.
 
